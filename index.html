@@ -9,10 +9,8 @@
 <body>
     <h2 style="text-align: center;">區域進度展示</h2>
     <div class="map-container">
-        <svg id="map-svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid meet">
-            <!-- 背景 SVG -->
-            <use href="images/CTC_ELE.svg#svg-content" class="background"/>
-            
+        <object data="images/CTC_ELE.svg" type="image/svg+xml" id="map-svg"></object>
+        <svg class="overlay-svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid meet">
             <!-- 互動區域 -->
             <g class="interactive-areas">
                 <path class="area" id="zone1" 
