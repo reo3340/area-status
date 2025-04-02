@@ -11,59 +11,99 @@
     <div class="map-container">
         <object data="images/CTC_ELE.svg" type="image/svg+xml" id="map-svg"></object>
         <svg class="overlay-svg">
-            <!-- 互動區域 -->
-            <g class="interactive-areas">
-                <path class="area" id="zone1" 
-                    d="M430.95,332.77 L436.87,332.77 L436.87,337.96 L430.95,337.96 Z" 
-                    data-name="第一區"/>
-                <path class="area" id="zone2" 
-                    d="M436.87,332.77 L470.74,332.77 L470.74,337.96 L436.87,337.96 Z" 
-                    data-name="第二區"/>
-                <path class="area" id="zone3" 
-                    d="M430.95,337.96 L434.37,337.96 L434.37,346.35 L430.95,346.35 Z" 
-                    data-name="第三區"/>
-                <!-- 示例遮罩區域 -->
-                <path class="area" id="mask1" 
-                    d="M430.95,332.77 L436.87,332.77 L436.87,337.96 L430.95,337.96 Z" 
-                    data-name="遮罩區域 1"/>
-            </g>
+            <g class="interactive-areas"></g>
         </svg>
         <div class="tooltip" id="tooltip"></div>
     </div>
-    <div class="zoom-controls">
-        <button class="zoom-btn" onclick="zoomIn()">+</button>
-        <button class="zoom-btn" onclick="zoomOut()">-</button>
-        <button class="zoom-btn" onclick="resetZoom()">重設</button>
+    <div class="control-panel">
+        <div class="zoom-controls">
+            <button class="zoom-btn" onclick="zoomIn()">+</button>
+            <button class="zoom-btn" onclick="zoomOut()">-</button>
+            <button class="zoom-btn" onclick="resetZoom()">重設</button>
+        </div>
+        <div class="mask-controls">
+            <button class="mask-btn" onclick="toggleMaskMode()">新增遮罩</button>
+            <button class="mask-btn" onclick="clearMasks()">清除遮罩</button>
+        </div>
     </div>
     <div id="loading">載入中...</div>
 
     <script src="js/main.js"></script>
     <script>
         let currentScale = 1.0;
+        let isDrawingMask = false;
+        let startPoint = null;
         const mapSvg = document.getElementById('map-svg');
         const overlaySvg = document.querySelector('.overlay-svg');
         const interactiveAreas = document.querySelector('.interactive-areas');
-        
-        // 添加點擊事件來創建新的遮罩
-        document.addEventListener('click', function(e) {
-            // 檢查點擊是否在 SVG 區域內
-            const rect = overlaySvg.getBoundingClientRect();
-            if (e.target === overlaySvg || e.target === interactiveAreas) {
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                
-                // 創建一個新的遮罩區域（這裡使用一個簡單的矩形）
-                const mask = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                const size = 50; // 遮罩大小
-                const path = `M${x-size/2},${y-size/2} L${x+size/2},${y-size/2} L${x+size/2},${y+size/2} L${x-size/2},${y+size/2} Z`;
-                
-                mask.setAttribute("d", path);
-                mask.setAttribute("class", "area");
-                mask.setAttribute("id", "mask" + Date.now());
-                mask.setAttribute("data-name", "新遮罩區域");
-                
-                interactiveAreas.appendChild(mask);
+
+        function toggleMaskMode() {
+            isDrawingMask = !isDrawingMask;
+            document.querySelector('button[onclick="toggleMaskMode()"]').textContent = 
+                isDrawingMask ? '完成繪製' : '新增遮罩';
+            document.body.style.cursor = isDrawingMask ? 'crosshair' : 'default';
+        }
+
+        function clearMasks() {
+            if (confirm('確定要清除所有遮罩嗎？')) {
+                interactiveAreas.innerHTML = '';
             }
+        }
+
+        overlaySvg.addEventListener('mousedown', function(e) {
+            if (!isDrawingMask) return;
+            const rect = overlaySvg.getBoundingClientRect();
+            startPoint = {
+                x: (e.clientX - rect.left) / currentScale,
+                y: (e.clientY - rect.top) / currentScale
+            };
+        });
+
+        overlaySvg.addEventListener('mousemove', function(e) {
+            if (!isDrawingMask || !startPoint) return;
+            const rect = overlaySvg.getBoundingClientRect();
+            const currentPoint = {
+                x: (e.clientX - rect.left) / currentScale,
+                y: (e.clientY - rect.top) / currentScale
+            };
+
+            // 更新或創建臨時遮罩
+            let tempMask = document.getElementById('tempMask');
+            if (!tempMask) {
+                tempMask = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                tempMask.setAttribute("id", "tempMask");
+                tempMask.setAttribute("class", "area");
+                interactiveAreas.appendChild(tempMask);
+            }
+
+            const path = `M${startPoint.x},${startPoint.y} L${currentPoint.x},${startPoint.y} L${currentPoint.x},${currentPoint.y} L${startPoint.x},${currentPoint.y} Z`;
+            tempMask.setAttribute("d", path);
+        });
+
+        overlaySvg.addEventListener('mouseup', function(e) {
+            if (!isDrawingMask || !startPoint) return;
+            const rect = overlaySvg.getBoundingClientRect();
+            const endPoint = {
+                x: (e.clientX - rect.left) / currentScale,
+                y: (e.clientY - rect.top) / currentScale
+            };
+
+            // 創建最終的遮罩
+            const mask = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            const path = `M${startPoint.x},${startPoint.y} L${endPoint.x},${startPoint.y} L${endPoint.x},${endPoint.y} L${startPoint.x},${endPoint.y} Z`;
+            
+            mask.setAttribute("d", path);
+            mask.setAttribute("class", "area");
+            mask.setAttribute("id", "mask" + Date.now());
+            mask.setAttribute("data-name", "遮罩區域");
+            
+            interactiveAreas.appendChild(mask);
+
+            // 移除臨時遮罩
+            const tempMask = document.getElementById('tempMask');
+            if (tempMask) tempMask.remove();
+
+            startPoint = null;
         });
 
         function updateZoom() {
