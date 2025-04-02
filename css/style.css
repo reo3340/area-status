@@ -17,8 +17,8 @@ body {
 }
 
 #map-svg {
-    width: 200%;
-    height: 200%;
+    width: 150%;
+    height: 150%;
     display: block;
     object-fit: contain;
     transform-origin: top left;
@@ -28,8 +28,8 @@ body {
     position: absolute;
     top: 0;
     left: 0;
-    width: 200%;
-    height: 200%;
+    width: 150%;
+    height: 150%;
     pointer-events: none;
 }
 
