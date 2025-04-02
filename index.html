@@ -9,24 +9,10 @@
 <body>
     <h2 style="text-align: center;">區域進度展示</h2>
     <div class="map-container">
-        <svg viewBox="0 0 800 600" id="map-svg" preserveAspectRatio="xMidYMid meet">
-            <!-- 背景圖形 -->
-            <g class="background" stroke="black" stroke-width="0.5" fill="none">
-                <!-- 從 CTC_ELE.svg 複製的路徑 -->
-                <path d="M430.95 332.77L430.95 346.35Z"/>
-                <path d="M436.87 326.45L436.87 332.04Z"/>
-                <path d="M434.37 346.35L430.95 346.35" class="highlight"/>
-                <path d="M436.87 332.04L468.1 332.04"/>
-                <path d="M434.37 337.96L470.74 337.96"/>
-                <path d="M470.74 332.77L470.74 337.96Z"/>
-                <path d="M434.37 337.96L434.37 346.35Z" class="highlight"/>
-                <path d="M434.37 337.96L430.95 337.96" class="highlight"/>
-                <!-- 其他路徑... -->
-            </g>
-
+        <object data="images/CTC_ELE.svg" type="image/svg+xml" class="base-svg"></object>
+        <svg class="overlay-svg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">
             <!-- 互動區域 -->
             <g class="interactive-areas">
-                <!-- 使用實際的區域路徑 -->
                 <path class="area" id="zone1" 
                     d="M430.95,332.77 L436.87,332.77 L436.87,337.96 L430.95,337.96 Z" 
                     data-name="第一區"/>
