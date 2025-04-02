@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>區域進度展示</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <h2 style="text-align: center;">區域進度展示</h2>
+    <div class="map-container">
+        <svg viewBox="0 0 800 500" id="map-svg">
+            <!-- 區域 -->
+            <polygon class="area" id="zone1" points="200,100 350,100 350,200 200,200" data-name="第一區"/>
+            <polygon class="area" id="zone2" points="400,100 550,100 550,200 400,200" data-name="第二區"/>
+            <polygon class="area" id="zone3" points="600,100 750,100 750,200 600,200" data-name="第三區"/>
+        </svg>
+        <div class="tooltip" id="tooltip"></div>
+    </div>
+    <div id="loading">載入中...</div>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
