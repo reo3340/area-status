@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <h2 style="text-align: center;">區域進度展示</h2>
+    <h2>區域進度展示</h2>
     <div class="map-container">
         <object data="images/CTC_ELE.svg" type="image/svg+xml" id="map-svg"></object>
         <svg class="overlay-svg">
@@ -35,7 +35,7 @@
 
     <script src="js/main.js"></script>
     <script>
-        let currentScale = 1.5; // 預設放大 1.5 倍
+        let currentScale = 1.0; // 預設不縮放
         const mapSvg = document.getElementById('map-svg');
         const overlaySvg = document.querySelector('.overlay-svg');
 
@@ -58,7 +58,7 @@
         }
 
         function resetZoom() {
-            currentScale = 1.5;
+            currentScale = 1.0;
             updateZoom();
         }
 
