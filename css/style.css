@@ -2,16 +2,20 @@ body {
     margin: 0;
     padding: 20px;
     font-family: Arial, sans-serif;
+    background-color: #f0f0f0;
 }
 
 .map-container {
     position: relative;
-    width: 800px;
-    height: 500px;
+    width: 100%;
+    max-width: 1000px;
+    height: 0;
+    padding-bottom: 66.7%; /* 保持圖片比例 1000:667 */
     background: url('../images/CTCele.jpg') no-repeat center center;
     background-size: contain;
     border: 2px solid black;
     margin: 20px auto;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 svg {
@@ -23,24 +27,24 @@ svg {
 }
 
 .area {
-    fill: rgba(128, 128, 128, 0.7);
-    stroke: black;
+    fill: rgba(255, 0, 0, 0.3);
+    stroke: #ff0000;
     stroke-width: 2;
-    transition: all 0.5s ease;
+    transition: all 0.3s ease;
     cursor: pointer;
 }
 
 .area:hover {
-    fill: rgba(128, 128, 128, 0.9);
+    fill: rgba(255, 0, 0, 0.5);
 }
 
 .area.completed {
-    fill: rgba(0, 255, 0, 0.5);
-    fill-opacity: 0.9;
+    fill: rgba(0, 255, 0, 0.3);
+    stroke: #00ff00;
 }
 
 .area.completed:hover {
-    fill: rgba(0, 255, 0, 0.7);
+    fill: rgba(0, 255, 0, 0.5);
 }
 
 #loading {
@@ -53,6 +57,7 @@ svg {
     padding: 20px;
     border-radius: 5px;
     display: none;
+    z-index: 1000;
 }
 
 .tooltip {
@@ -65,4 +70,5 @@ svg {
     pointer-events: none;
     display: none;
     z-index: 1000;
+    white-space: nowrap;
 }
