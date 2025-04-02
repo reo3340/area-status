@@ -1,25 +1,26 @@
 body {
     margin: 0;
-    padding: 20px;
+    padding: 0;
     font-family: Arial, sans-serif;
     background-color: #f0f0f0;
 }
 
 .map-container {
     position: relative;
-    width: 100%;
-    max-width: 1920px;
+    width: 95vw;
+    height: 90vh;
     margin: 20px auto;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     background-color: white;
-    padding: 20px;
+    padding: 10px;
+    overflow: auto;
 }
 
 #map-svg {
     width: 100%;
-    height: auto;
+    height: 100%;
     display: block;
-    min-height: 600px;
+    object-fit: contain;
 }
 
 .overlay-svg {
@@ -80,4 +81,8 @@ body {
     display: none;
     z-index: 1000;
     white-space: nowrap;
+}
+
+h2 {
+    margin: 10px 0;
 }
