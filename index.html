@@ -26,8 +26,44 @@
         </svg>
         <div class="tooltip" id="tooltip"></div>
     </div>
+    <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoomIn()">+</button>
+        <button class="zoom-btn" onclick="zoomOut()">-</button>
+        <button class="zoom-btn" onclick="resetZoom()">重設</button>
+    </div>
     <div id="loading">載入中...</div>
 
     <script src="js/main.js"></script>
+    <script>
+        let currentScale = 2.0; // 預設放大兩倍
+        const mapSvg = document.getElementById('map-svg');
+        const overlaySvg = document.querySelector('.overlay-svg');
+
+        function updateZoom() {
+            mapSvg.style.width = (100 * currentScale) + '%';
+            mapSvg.style.height = (100 * currentScale) + '%';
+            overlaySvg.style.width = (100 * currentScale) + '%';
+            overlaySvg.style.height = (100 * currentScale) + '%';
+        }
+
+        function zoomIn() {
+            currentScale *= 1.2;
+            updateZoom();
+        }
+
+        function zoomOut() {
+            currentScale /= 1.2;
+            if (currentScale < 1) currentScale = 1;
+            updateZoom();
+        }
+
+        function resetZoom() {
+            currentScale = 2.0;
+            updateZoom();
+        }
+
+        // 初始化縮放
+        updateZoom();
+    </script>
 </body>
 </html>
