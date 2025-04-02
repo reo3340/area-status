@@ -9,11 +9,28 @@
 <body>
     <h2 style="text-align: center;">區域進度展示</h2>
     <div class="map-container">
-        <svg viewBox="0 0 1000 667" id="map-svg" preserveAspectRatio="xMidYMid meet">
-            <!-- 區域 -->
-            <polygon class="area" id="zone1" points="270,190 370,190 370,290 270,290" data-name="第一區"/>
-            <polygon class="area" id="zone2" points="400,190 500,190 500,290 400,290" data-name="第二區"/>
-            <polygon class="area" id="zone3" points="530,190 630,190 630,290 530,290" data-name="第三區"/>
+        <svg viewBox="0 0 1000 800" id="map-svg" preserveAspectRatio="xMidYMid meet">
+            <!-- 背景圖形 -->
+            <g class="background" stroke="#000" stroke-width="2" fill="none">
+                <!-- 外部輪廓 -->
+                <rect x="100" y="100" width="800" height="600" />
+                
+                <!-- 內部分隔線 -->
+                <line x1="300" y1="100" x2="300" y2="700" />
+                <line x1="500" y1="100" x2="500" y2="700" />
+                <line x1="700" y1="100" x2="700" y2="700" />
+                
+                <!-- 橫向分隔線 -->
+                <line x1="100" y1="300" x2="900" y2="300" />
+                <line x1="100" y1="500" x2="900" y2="500" />
+            </g>
+
+            <!-- 互動區域 -->
+            <g class="interactive-areas">
+                <rect class="area" id="zone1" x="150" y="150" width="100" height="100" data-name="第一區"/>
+                <rect class="area" id="zone2" x="450" y="150" width="100" height="100" data-name="第二區"/>
+                <rect class="area" id="zone3" x="750" y="150" width="100" height="100" data-name="第三區"/>
+            </g>
         </svg>
         <div class="tooltip" id="tooltip"></div>
     </div>
