@@ -104,14 +104,12 @@ h2 {
 .area-button {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     width: 100%;
     padding: 10px;
     margin-bottom: 10px;
     border: 1px solid #ddd;
     border-radius: 5px;
     background: white;
-    cursor: pointer;
     transition: all 0.3s ease;
 }
 
@@ -122,6 +120,43 @@ h2 {
 .area-button.completed {
     border-color: #4CAF50;
     color: #4CAF50;
+}
+
+.area-name {
+    flex: 1;
+    margin-right: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.area-controls {
+    display: flex;
+    gap: 5px;
+}
+
+.toggle-btn,
+.delete-btn {
+    border: none;
+    border-radius: 3px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-size: 14px;
+    color: white;
+    transition: opacity 0.3s;
+}
+
+.toggle-btn:hover,
+.delete-btn:hover {
+    opacity: 0.8;
+}
+
+.toggle-btn {
+    background: #2196F3;
+}
+
+.delete-btn {
+    background: #f44336;
 }
 
 /* 命名對話框 */

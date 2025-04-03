@@ -40,7 +40,6 @@
         </div>
         <div class="mask-controls">
             <button class="mask-btn" onclick="toggleDrawMode()" id="drawBtn">繪製區域</button>
-            <button class="mask-btn" onclick="resetMasks()">重設遮罩</button>
         </div>
     </div>
     <div id="loading">載入中...</div>
@@ -187,12 +186,15 @@
             area.setAttribute('data-name', name);
             
             // 添加區域按鈕
-            const button = document.createElement('button');
+            const button = document.createElement('div');
             button.className = 'area-button';
             button.setAttribute('data-area-id', area.id);
             button.innerHTML = `
-                <span>${name}</span>
-                <button onclick="toggleAreaMask(document.getElementById('${area.id}'))">切換</button>
+                <span class="area-name">${name}</span>
+                <div class="area-controls">
+                    <button class="toggle-btn" onclick="toggleAreaMask(document.getElementById('${area.id}'))">切換</button>
+                    <button class="delete-btn" onclick="deleteArea('${area.id}')">刪除</button>
+                </div>
             `;
             areaList.appendChild(button);
 
@@ -269,21 +271,17 @@
             }
         }
 
-        function resetMasks() {
-            if (confirm('確定要重設所有遮罩嗎？')) {
-                // 清除所有洞
-                while (holeMask.children.length > 1) {
-                    holeMask.removeChild(holeMask.lastChild);
-                }
-                // 移除所有完成標記
-                interactiveAreas.querySelectorAll('.area').forEach(area => {
-                    area.classList.remove('completed');
-                });
-                // 重設按鈕狀態
-                document.querySelectorAll('.area-button').forEach(button => {
-                    button.classList.remove('completed');
-                });
-            }
+        function deleteArea(areaId) {
+            const area = document.getElementById(areaId);
+            const button = document.querySelector(`[data-area-id="${areaId}"]`);
+            const hole = holeMask.querySelector(`#hole-${areaId}`);
+
+            // 移除 SVG 中的區域
+            if (area) area.remove();
+            // 移除按鈕
+            if (button) button.remove();
+            // 移除遮罩中的洞
+            if (hole) hole.remove();
         }
 
         function showTooltip(event, text) {
