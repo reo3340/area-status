@@ -26,6 +26,12 @@
         </svg>
         <div class="tooltip" id="tooltip"></div>
     </div>
+    <div class="side-panel" id="sidePanel">
+        <div class="area-list" id="areaList">
+            <h3>區域列表</h3>
+            <!-- 區域按鈕會動態添加到這裡 -->
+        </div>
+    </div>
     <div class="control-panel">
         <div class="zoom-controls">
             <button class="zoom-btn" onclick="zoomIn()">+</button>
@@ -38,12 +44,25 @@
         </div>
     </div>
     <div id="loading">載入中...</div>
+    
+    <!-- 命名對話框 -->
+    <div class="modal" id="nameModal">
+        <div class="modal-content">
+            <h3>命名區域</h3>
+            <input type="text" id="areaName" placeholder="請輸入區域名稱">
+            <div class="modal-buttons">
+                <button onclick="confirmAreaName()">確定</button>
+                <button onclick="cancelAreaName()">取消</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         let currentScale = 1.0;
         let isDrawing = false;
         let startPoint = null;
         let points = [];
+        let tempArea = null;
         
         const mapContainer = document.getElementById('mapContainer');
         const mapSvg = document.getElementById('map-svg');
@@ -52,6 +71,9 @@
         const holeMask = document.querySelector('#holeMask');
         const drawingArea = document.getElementById('drawingArea');
         const drawBtn = document.getElementById('drawBtn');
+        const nameModal = document.getElementById('nameModal');
+        const areaNameInput = document.getElementById('areaName');
+        const areaList = document.getElementById('areaList');
 
         // 修正 SVG 的寬高比例
         mapSvg.addEventListener('load', function() {
@@ -144,21 +166,35 @@
             drawingArea.setAttribute('d', path);
         }
 
-        function finishDrawing() {
-            if (points.length < 3) return;
+        function showNameModal() {
+            nameModal.style.display = 'flex';
+            areaNameInput.focus();
+        }
 
-            const area = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            const id = 'area' + Date.now();
-            area.setAttribute('id', id);
-            area.setAttribute('class', 'area');
-            area.setAttribute('data-name', '自定義區域');
+        function hideNameModal() {
+            nameModal.style.display = 'none';
+            areaNameInput.value = '';
+        }
 
-            let path = `M ${points[0][0]},${points[0][1]}`;
-            for (let i = 1; i < points.length; i++) {
-                path += ` L ${points[i][0]},${points[i][1]}`;
+        function confirmAreaName() {
+            const name = areaNameInput.value.trim();
+            if (!name) {
+                alert('請輸入區域名稱');
+                return;
             }
-            path += ' Z';
-            area.setAttribute('d', path);
+
+            const area = tempArea;
+            area.setAttribute('data-name', name);
+            
+            // 添加區域按鈕
+            const button = document.createElement('button');
+            button.className = 'area-button';
+            button.setAttribute('data-area-id', area.id);
+            button.innerHTML = `
+                <span>${name}</span>
+                <button onclick="toggleAreaMask(document.getElementById('${area.id}'))">切換</button>
+            `;
+            areaList.appendChild(button);
 
             // 添加事件監聽
             area.addEventListener('click', function(e) {
@@ -175,20 +211,52 @@
                 hideTooltip();
             });
 
+            hideNameModal();
+            tempArea = null;
+        }
+
+        function cancelAreaName() {
+            if (tempArea) {
+                tempArea.remove();
+            }
+            hideNameModal();
+            tempArea = null;
+        }
+
+        function finishDrawing() {
+            if (points.length < 3) return;
+
+            const area = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            const id = 'area' + Date.now();
+            area.setAttribute('id', id);
+            area.setAttribute('class', 'area');
+
+            let path = `M ${points[0][0]},${points[0][1]}`;
+            for (let i = 1; i < points.length; i++) {
+                path += ` L ${points[i][0]},${points[i][1]}`;
+            }
+            path += ' Z';
+            area.setAttribute('d', path);
+
             interactiveAreas.appendChild(area);
             points = [];
             drawingArea.style.display = 'none';
             toggleDrawMode();
+
+            tempArea = area;
+            showNameModal();
         }
 
         function toggleAreaMask(area) {
             const areaId = area.id;
             const existingHole = holeMask.querySelector(`#hole-${areaId}`);
+            const button = document.querySelector(`button[data-area-id="${areaId}"]`);
             
             if (existingHole) {
                 // 如果已經有洞，就填回去（恢復遮罩）
                 existingHole.remove();
                 area.classList.remove('completed');
+                if (button) button.classList.remove('completed');
             } else {
                 // 如果還沒有洞，就挖一個（移除遮罩）
                 const hole = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -197,6 +265,7 @@
                 hole.setAttribute("fill", "black");
                 holeMask.appendChild(hole);
                 area.classList.add('completed');
+                if (button) button.classList.add('completed');
             }
         }
 
@@ -209,6 +278,10 @@
                 // 移除所有完成標記
                 interactiveAreas.querySelectorAll('.area').forEach(area => {
                     area.classList.remove('completed');
+                });
+                // 重設按鈕狀態
+                document.querySelectorAll('.area-button').forEach(button => {
+                    button.classList.remove('completed');
                 });
             }
         }
