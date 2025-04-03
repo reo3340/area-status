@@ -72,6 +72,13 @@ h2 {
     pointer-events: none;
 }
 
+.drawing {
+    fill: none;
+    stroke: #2196F3;
+    stroke-width: 2;
+    stroke-dasharray: 5,5;
+}
+
 #loading {
     position: fixed;
     top: 50%;

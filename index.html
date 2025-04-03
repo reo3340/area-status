@@ -20,18 +20,9 @@
             <!-- 全圖遮罩 -->
             <rect width="100%" height="100%" class="full-mask" mask="url(#holeMask)"/>
             <!-- 可點擊區域 -->
-            <g class="interactive-areas">
-                <!-- 預設區域 -->
-                <path class="area" id="area1" 
-                    d="M430.95,332.77 L436.87,332.77 L436.87,337.96 L430.95,337.96 Z" 
-                    data-name="區域1"/>
-                <path class="area" id="area2" 
-                    d="M436.87,332.77 L470.74,332.77 L470.74,337.96 L436.87,337.96 Z" 
-                    data-name="區域2"/>
-                <path class="area" id="area3" 
-                    d="M430.95,337.96 L434.37,337.96 L434.37,346.35 L430.95,346.35 Z" 
-                    data-name="區域3"/>
-            </g>
+            <g class="interactive-areas"></g>
+            <!-- 繪製中的區域 -->
+            <path id="drawingArea" class="drawing" style="display: none;"/>
         </svg>
         <div class="tooltip" id="tooltip"></div>
     </div>
@@ -42,6 +33,7 @@
             <button class="zoom-btn" onclick="resetZoom()">重設</button>
         </div>
         <div class="mask-controls">
+            <button class="mask-btn" onclick="toggleDrawMode()" id="drawBtn">繪製區域</button>
             <button class="mask-btn" onclick="resetMasks()">重設遮罩</button>
         </div>
     </div>
@@ -49,12 +41,17 @@
 
     <script>
         let currentScale = 1.0;
+        let isDrawing = false;
+        let startPoint = null;
+        let points = [];
         
         const mapContainer = document.getElementById('mapContainer');
         const mapSvg = document.getElementById('map-svg');
         const overlaySvg = document.getElementById('overlaySvg');
         const interactiveAreas = overlaySvg.querySelector('.interactive-areas');
         const holeMask = document.querySelector('#holeMask');
+        const drawingArea = document.getElementById('drawingArea');
+        const drawBtn = document.getElementById('drawBtn');
 
         // 修正 SVG 的寬高比例
         mapSvg.addEventListener('load', function() {
@@ -70,13 +67,106 @@
             }
         });
 
-        // 為每個區域添加點擊事件
-        interactiveAreas.querySelectorAll('.area').forEach(area => {
-            area.addEventListener('click', function() {
-                toggleAreaMask(this);
+        function toggleDrawMode() {
+            isDrawing = !isDrawing;
+            drawBtn.textContent = isDrawing ? '完成繪製' : '繪製區域';
+            overlaySvg.style.cursor = isDrawing ? 'crosshair' : 'default';
+            points = [];
+            drawingArea.style.display = 'none';
+            updateDrawingPath();
+        }
+
+        function createSVGPoint(event) {
+            const point = overlaySvg.createSVGPoint();
+            point.x = event.clientX;
+            point.y = event.clientY;
+            return point.matrixTransform(overlaySvg.getScreenCTM().inverse());
+        }
+
+        overlaySvg.addEventListener('click', function(e) {
+            if (!isDrawing) {
+                // 檢查是否點擊了已存在的區域
+                const clickedArea = e.target.closest('.area');
+                if (clickedArea) {
+                    toggleAreaMask(clickedArea);
+                }
+                return;
+            }
+
+            e.preventDefault();
+            const point = createSVGPoint(e);
+            points.push([point.x, point.y]);
+            updateDrawingPath();
+
+            // 如果點擊了起點附近，完成繪製
+            if (points.length > 2) {
+                const startX = points[0][0];
+                const startY = points[0][1];
+                const distance = Math.sqrt(
+                    Math.pow(point.x - startX, 2) + 
+                    Math.pow(point.y - startY, 2)
+                );
+
+                if (distance < 10) { // 如果距離小於 10 個單位
+                    finishDrawing();
+                }
+            }
+        });
+
+        overlaySvg.addEventListener('mousemove', function(e) {
+            if (!isDrawing || points.length === 0) return;
+
+            const point = createSVGPoint(e);
+            updateDrawingPath(point);
+        });
+
+        function updateDrawingPath(currentPoint = null) {
+            if (points.length === 0) {
+                drawingArea.style.display = 'none';
+                return;
+            }
+
+            drawingArea.style.display = 'block';
+            let path = `M ${points[0][0]},${points[0][1]}`;
+            
+            for (let i = 1; i < points.length; i++) {
+                path += ` L ${points[i][0]},${points[i][1]}`;
+            }
+
+            if (currentPoint) {
+                path += ` L ${currentPoint.x},${currentPoint.y}`;
+            }
+
+            if (points.length > 2) {
+                path += ' Z';
+            }
+
+            drawingArea.setAttribute('d', path);
+        }
+
+        function finishDrawing() {
+            if (points.length < 3) return;
+
+            const area = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            const id = 'area' + Date.now();
+            area.setAttribute('id', id);
+            area.setAttribute('class', 'area');
+            area.setAttribute('data-name', '自定義區域');
+
+            let path = `M ${points[0][0]},${points[0][1]}`;
+            for (let i = 1; i < points.length; i++) {
+                path += ` L ${points[i][0]},${points[i][1]}`;
+            }
+            path += ' Z';
+            area.setAttribute('d', path);
+
+            // 添加事件監聽
+            area.addEventListener('click', function(e) {
+                if (!isDrawing) {
+                    toggleAreaMask(this);
+                }
             });
 
-            // 添加懸停提示
             area.addEventListener('mouseenter', function(e) {
                 showTooltip(e, this.getAttribute('data-name'));
             });
@@ -84,7 +174,12 @@
             area.addEventListener('mouseleave', function() {
                 hideTooltip();
             });
-        });
+
+            interactiveAreas.appendChild(area);
+            points = [];
+            drawingArea.style.display = 'none';
+            toggleDrawMode();
+        }
 
         function toggleAreaMask(area) {
             const areaId = area.id;
