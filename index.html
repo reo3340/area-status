@@ -11,7 +11,27 @@
     <div class="map-container" id="mapContainer">
         <object data="./CTC_ELE.svg" type="image/svg+xml" id="map-svg"></object>
         <svg class="overlay-svg" id="overlaySvg">
-            <g class="interactive-areas"></g>
+            <defs>
+                <mask id="holeMask">
+                    <rect width="100%" height="100%" fill="white"/>
+                    <!-- 挖空的區域會在這裡動態添加 -->
+                </mask>
+            </defs>
+            <!-- 全圖遮罩 -->
+            <rect width="100%" height="100%" class="full-mask" mask="url(#holeMask)"/>
+            <!-- 可點擊區域 -->
+            <g class="interactive-areas">
+                <!-- 預設區域 -->
+                <path class="area" id="area1" 
+                    d="M430.95,332.77 L436.87,332.77 L436.87,337.96 L430.95,337.96 Z" 
+                    data-name="區域1"/>
+                <path class="area" id="area2" 
+                    d="M436.87,332.77 L470.74,332.77 L470.74,337.96 L436.87,337.96 Z" 
+                    data-name="區域2"/>
+                <path class="area" id="area3" 
+                    d="M430.95,337.96 L434.37,337.96 L434.37,346.35 L430.95,346.35 Z" 
+                    data-name="區域3"/>
+            </g>
         </svg>
         <div class="tooltip" id="tooltip"></div>
     </div>
@@ -22,22 +42,19 @@
             <button class="zoom-btn" onclick="resetZoom()">重設</button>
         </div>
         <div class="mask-controls">
-            <button class="mask-btn" onclick="toggleMaskMode()" id="maskBtn">新增遮罩</button>
-            <button class="mask-btn" onclick="clearMasks()">清除遮罩</button>
+            <button class="mask-btn" onclick="resetMasks()">重設遮罩</button>
         </div>
     </div>
     <div id="loading">載入中...</div>
 
     <script>
         let currentScale = 1.0;
-        let isDrawingMask = false;
-        let startPoint = null;
         
         const mapContainer = document.getElementById('mapContainer');
         const mapSvg = document.getElementById('map-svg');
         const overlaySvg = document.getElementById('overlaySvg');
         const interactiveAreas = overlaySvg.querySelector('.interactive-areas');
-        const maskBtn = document.getElementById('maskBtn');
+        const holeMask = document.querySelector('#holeMask');
 
         // 修正 SVG 的寬高比例
         mapSvg.addEventListener('load', function() {
@@ -53,87 +70,65 @@
             }
         });
 
-        function toggleMaskMode() {
-            isDrawingMask = !isDrawingMask;
-            maskBtn.textContent = isDrawingMask ? '完成繪製' : '新增遮罩';
-            overlaySvg.style.cursor = isDrawingMask ? 'crosshair' : 'default';
+        // 為每個區域添加點擊事件
+        interactiveAreas.querySelectorAll('.area').forEach(area => {
+            area.addEventListener('click', function() {
+                toggleAreaMask(this);
+            });
+
+            // 添加懸停提示
+            area.addEventListener('mouseenter', function(e) {
+                showTooltip(e, this.getAttribute('data-name'));
+            });
+
+            area.addEventListener('mouseleave', function() {
+                hideTooltip();
+            });
+        });
+
+        function toggleAreaMask(area) {
+            const areaId = area.id;
+            const existingHole = holeMask.querySelector(`#hole-${areaId}`);
+            
+            if (existingHole) {
+                // 如果已經有洞，就填回去（恢復遮罩）
+                existingHole.remove();
+                area.classList.remove('completed');
+            } else {
+                // 如果還沒有洞，就挖一個（移除遮罩）
+                const hole = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                hole.setAttribute("id", `hole-${areaId}`);
+                hole.setAttribute("d", area.getAttribute("d"));
+                hole.setAttribute("fill", "black");
+                holeMask.appendChild(hole);
+                area.classList.add('completed');
+            }
         }
 
-        function clearMasks() {
-            if (confirm('確定要清除所有遮罩嗎？')) {
-                while (interactiveAreas.firstChild) {
-                    interactiveAreas.removeChild(interactiveAreas.firstChild);
+        function resetMasks() {
+            if (confirm('確定要重設所有遮罩嗎？')) {
+                // 清除所有洞
+                while (holeMask.children.length > 1) {
+                    holeMask.removeChild(holeMask.lastChild);
                 }
+                // 移除所有完成標記
+                interactiveAreas.querySelectorAll('.area').forEach(area => {
+                    area.classList.remove('completed');
+                });
             }
         }
 
-        function createSVGPoint(event) {
-            const point = overlaySvg.createSVGPoint();
-            point.x = event.clientX;
-            point.y = event.clientY;
-            return point.matrixTransform(overlaySvg.getScreenCTM().inverse());
+        function showTooltip(event, text) {
+            const tooltip = document.getElementById('tooltip');
+            tooltip.textContent = text;
+            tooltip.style.display = 'block';
+            tooltip.style.left = (event.pageX + 10) + 'px';
+            tooltip.style.top = (event.pageY + 10) + 'px';
         }
 
-        overlaySvg.addEventListener('mousedown', function(e) {
-            if (!isDrawingMask) return;
-            e.preventDefault();
-            
-            const point = createSVGPoint(e);
-            startPoint = { x: point.x, y: point.y };
-
-            // 創建臨時遮罩
-            const tempMask = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            tempMask.setAttribute("id", "tempMask");
-            tempMask.setAttribute("class", "area");
-            interactiveAreas.appendChild(tempMask);
-        });
-
-        overlaySvg.addEventListener('mousemove', function(e) {
-            if (!isDrawingMask || !startPoint) return;
-            e.preventDefault();
-
-            const point = createSVGPoint(e);
-            const tempMask = document.getElementById('tempMask');
-            
-            if (tempMask) {
-                const path = `M${startPoint.x},${startPoint.y} L${point.x},${startPoint.y} L${point.x},${point.y} L${startPoint.x},${point.y} Z`;
-                tempMask.setAttribute("d", path);
-            }
-        });
-
-        overlaySvg.addEventListener('mouseup', function(e) {
-            if (!isDrawingMask || !startPoint) return;
-            e.preventDefault();
-
-            const point = createSVGPoint(e);
-
-            // 如果拖曳距離太小，不創建遮罩
-            const minDistance = 5;
-            if (Math.abs(point.x - startPoint.x) < minDistance || 
-                Math.abs(point.y - startPoint.y) < minDistance) {
-                const tempMask = document.getElementById('tempMask');
-                if (tempMask) tempMask.remove();
-                startPoint = null;
-                return;
-            }
-
-            // 創建最終的遮罩
-            const mask = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            const path = `M${startPoint.x},${startPoint.y} L${point.x},${startPoint.y} L${point.x},${point.y} L${startPoint.x},${point.y} Z`;
-            
-            mask.setAttribute("d", path);
-            mask.setAttribute("class", "area");
-            mask.setAttribute("id", "mask" + Date.now());
-            mask.setAttribute("data-name", "遮罩區域");
-            
-            interactiveAreas.appendChild(mask);
-
-            // 移除臨時遮罩
-            const tempMask = document.getElementById('tempMask');
-            if (tempMask) tempMask.remove();
-
-            startPoint = null;
-        });
+        function hideTooltip() {
+            document.getElementById('tooltip').style.display = 'none';
+        }
 
         function updateZoom() {
             mapSvg.style.width = (100 * currentScale) + '%';

@@ -45,7 +45,7 @@ h2 {
 }
 
 .area {
-    fill: rgba(128, 128, 128, 0.5);  /* 灰色半透明 */
+    fill: none;
     stroke: #666;
     stroke-width: 2;
     transition: all 0.3s ease;
@@ -53,17 +53,23 @@ h2 {
 }
 
 .area:hover {
-    fill: rgba(128, 128, 128, 0.7);  /* 懸停時更深的灰色 */
     stroke: #444;
+    stroke-width: 3;
 }
 
 .area.completed {
-    fill: rgba(144, 238, 144, 0.5);  /* 淺綠色半透明 */
+    fill: none;
     stroke: #4CAF50;
 }
 
 .area.completed:hover {
-    fill: rgba(144, 238, 144, 0.7);  /* 懸停時更深的綠色 */
+    stroke: #45a049;
+    stroke-width: 3;
+}
+
+.full-mask {
+    fill: rgba(128, 128, 128, 0.5);
+    pointer-events: none;
 }
 
 #loading {
