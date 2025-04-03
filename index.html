@@ -8,9 +8,9 @@
 </head>
 <body>
     <h2>區域進度展示</h2>
-    <div class="map-container">
-        <object data="images/CTC_ELE.svg" type="image/svg+xml" id="map-svg"></object>
-        <svg class="overlay-svg">
+    <div class="map-container" id="mapContainer">
+        <object data="./CTC_ELE.svg" type="image/svg+xml" id="map-svg"></object>
+        <svg class="overlay-svg" id="overlaySvg" preserveAspectRatio="xMidYMid meet">
             <g class="interactive-areas"></g>
         </svg>
         <div class="tooltip" id="tooltip"></div>
@@ -22,71 +22,117 @@
             <button class="zoom-btn" onclick="resetZoom()">重設</button>
         </div>
         <div class="mask-controls">
-            <button class="mask-btn" onclick="toggleMaskMode()">新增遮罩</button>
+            <button class="mask-btn" onclick="toggleMaskMode()" id="maskBtn">新增遮罩</button>
             <button class="mask-btn" onclick="clearMasks()">清除遮罩</button>
         </div>
     </div>
     <div id="loading">載入中...</div>
 
-    <script src="js/main.js"></script>
     <script>
         let currentScale = 1.0;
         let isDrawingMask = false;
         let startPoint = null;
+        
+        const mapContainer = document.getElementById('mapContainer');
         const mapSvg = document.getElementById('map-svg');
-        const overlaySvg = document.querySelector('.overlay-svg');
-        const interactiveAreas = document.querySelector('.interactive-areas');
+        const overlaySvg = document.getElementById('overlaySvg');
+        const interactiveAreas = overlaySvg.querySelector('.interactive-areas');
+        const maskBtn = document.getElementById('maskBtn');
+
+        // 修正 SVG 的寬高比例
+        mapSvg.addEventListener('load', function() {
+            const svgDoc = mapSvg.contentDocument;
+            if (svgDoc) {
+                const svgElement = svgDoc.querySelector('svg');
+                if (svgElement) {
+                    const viewBox = svgElement.getAttribute('viewBox');
+                    if (viewBox) {
+                        overlaySvg.setAttribute('viewBox', viewBox);
+                    }
+                    // 設置相同的寬高比
+                    const width = svgElement.getAttribute('width');
+                    const height = svgElement.getAttribute('height');
+                    if (width && height) {
+                        overlaySvg.setAttribute('width', width);
+                        overlaySvg.setAttribute('height', height);
+                    }
+                }
+            }
+        });
 
         function toggleMaskMode() {
             isDrawingMask = !isDrawingMask;
-            document.querySelector('button[onclick="toggleMaskMode()"]').textContent = 
-                isDrawingMask ? '完成繪製' : '新增遮罩';
+            maskBtn.textContent = isDrawingMask ? '完成繪製' : '新增遮罩';
             document.body.style.cursor = isDrawingMask ? 'crosshair' : 'default';
-        }
-
-        function clearMasks() {
-            if (confirm('確定要清除所有遮罩嗎？')) {
-                interactiveAreas.innerHTML = '';
+            
+            if (isDrawingMask) {
+                mapContainer.addEventListener('mousedown', startDrawing);
+                mapContainer.addEventListener('mousemove', drawMask);
+                mapContainer.addEventListener('mouseup', endDrawing);
+            } else {
+                mapContainer.removeEventListener('mousedown', startDrawing);
+                mapContainer.removeEventListener('mousemove', drawMask);
+                mapContainer.removeEventListener('mouseup', endDrawing);
+                
+                // 清除任何臨時遮罩
+                const tempMask = document.getElementById('tempMask');
+                if (tempMask) tempMask.remove();
             }
         }
 
-        overlaySvg.addEventListener('mousedown', function(e) {
+        function getScaledPoint(e) {
+            const rect = overlaySvg.getBoundingClientRect();
+            const point = overlaySvg.createSVGPoint();
+            
+            point.x = e.clientX - rect.left;
+            point.y = e.clientY - rect.top;
+            
+            // 創建 SVG 變換矩陣
+            const matrix = overlaySvg.getScreenCTM().inverse();
+            return point.matrixTransform(matrix);
+        }
+
+        function startDrawing(e) {
             if (!isDrawingMask) return;
-            const rect = overlaySvg.getBoundingClientRect();
-            startPoint = {
-                x: (e.clientX - rect.left) / currentScale,
-                y: (e.clientY - rect.top) / currentScale
-            };
-        });
+            e.preventDefault();
+            
+            startPoint = getScaledPoint(e);
+            
+            // 創建臨時遮罩
+            const tempMask = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            tempMask.setAttribute("id", "tempMask");
+            tempMask.setAttribute("class", "area");
+            interactiveAreas.appendChild(tempMask);
+        }
 
-        overlaySvg.addEventListener('mousemove', function(e) {
+        function drawMask(e) {
             if (!isDrawingMask || !startPoint) return;
-            const rect = overlaySvg.getBoundingClientRect();
-            const currentPoint = {
-                x: (e.clientX - rect.left) / currentScale,
-                y: (e.clientY - rect.top) / currentScale
-            };
-
-            // 更新或創建臨時遮罩
-            let tempMask = document.getElementById('tempMask');
-            if (!tempMask) {
-                tempMask = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                tempMask.setAttribute("id", "tempMask");
-                tempMask.setAttribute("class", "area");
-                interactiveAreas.appendChild(tempMask);
+            e.preventDefault();
+            
+            const currentPoint = getScaledPoint(e);
+            const tempMask = document.getElementById('tempMask');
+            
+            if (tempMask) {
+                const path = `M${startPoint.x},${startPoint.y} L${currentPoint.x},${startPoint.y} L${currentPoint.x},${currentPoint.y} L${startPoint.x},${currentPoint.y} Z`;
+                tempMask.setAttribute("d", path);
             }
+        }
 
-            const path = `M${startPoint.x},${startPoint.y} L${currentPoint.x},${startPoint.y} L${currentPoint.x},${currentPoint.y} L${startPoint.x},${currentPoint.y} Z`;
-            tempMask.setAttribute("d", path);
-        });
-
-        overlaySvg.addEventListener('mouseup', function(e) {
+        function endDrawing(e) {
             if (!isDrawingMask || !startPoint) return;
-            const rect = overlaySvg.getBoundingClientRect();
-            const endPoint = {
-                x: (e.clientX - rect.left) / currentScale,
-                y: (e.clientY - rect.top) / currentScale
-            };
+            e.preventDefault();
+            
+            const endPoint = getScaledPoint(e);
+
+            // 如果拖曳距離太小，不創建遮罩
+            const minDistance = 5;
+            if (Math.abs(endPoint.x - startPoint.x) < minDistance || 
+                Math.abs(endPoint.y - startPoint.y) < minDistance) {
+                const tempMask = document.getElementById('tempMask');
+                if (tempMask) tempMask.remove();
+                startPoint = null;
+                return;
+            }
 
             // 創建最終的遮罩
             const mask = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -104,7 +150,15 @@
             if (tempMask) tempMask.remove();
 
             startPoint = null;
-        });
+        }
+
+        function clearMasks() {
+            if (confirm('確定要清除所有遮罩嗎？')) {
+                while (interactiveAreas.firstChild) {
+                    interactiveAreas.removeChild(interactiveAreas.firstChild);
+                }
+            }
+        }
 
         function updateZoom() {
             mapSvg.style.width = (100 * currentScale) + '%';
@@ -129,7 +183,7 @@
             updateZoom();
         }
 
-        // 初始化縮放
+        // 初始化
         updateZoom();
     </script>
 </body>
