@@ -8,38 +8,40 @@
 </head>
 <body>
     <h2>區域進度展示</h2>
-    <div class="map-container" id="mapContainer">
-        <object data="./CTC_ELE.svg" type="image/svg+xml" id="map-svg"></object>
-        <svg class="overlay-svg" id="overlaySvg">
-            <defs>
-                <mask id="holeMask">
-                    <rect width="100%" height="100%" fill="white"/>
-                    <!-- 挖空的區域會在這裡動態添加 -->
-                </mask>
-            </defs>
-            <!-- 全圖遮罩 -->
-            <rect width="100%" height="100%" class="full-mask" mask="url(#holeMask)"/>
-            <!-- 可點擊區域 -->
-            <g class="interactive-areas"></g>
-            <!-- 繪製中的區域 -->
-            <path id="drawingArea" class="drawing" style="display: none;"/>
-        </svg>
-        <div class="tooltip" id="tooltip"></div>
-    </div>
-    <div class="side-panel" id="sidePanel">
-        <div class="area-list" id="areaList">
-            <h3>區域列表</h3>
-            <!-- 區域按鈕會動態添加到這裡 -->
+    <div class="main-container">
+        <div class="map-container" id="mapContainer">
+            <object data="./CTC_ELE.svg" type="image/svg+xml" id="map-svg"></object>
+            <svg class="overlay-svg" id="overlaySvg">
+                <defs>
+                    <mask id="holeMask">
+                        <rect width="100%" height="100%" fill="white"/>
+                        <!-- 挖空的區域會在這裡動態添加 -->
+                    </mask>
+                </defs>
+                <!-- 全圖遮罩 -->
+                <rect width="100%" height="100%" class="full-mask" mask="url(#holeMask)"/>
+                <!-- 可點擊區域 -->
+                <g class="interactive-areas"></g>
+                <!-- 繪製中的區域 -->
+                <path id="drawingArea" class="drawing" style="display: none;"/>
+            </svg>
+            <div class="tooltip" id="tooltip"></div>
+            <div class="control-panel">
+                <div class="zoom-controls">
+                    <button class="zoom-btn" onclick="zoomIn()">+</button>
+                    <button class="zoom-btn" onclick="zoomOut()">-</button>
+                    <button class="zoom-btn" onclick="resetZoom()">重設</button>
+                </div>
+                <div class="mask-controls">
+                    <button class="mask-btn" onclick="toggleDrawMode()" id="drawBtn">繪製區域</button>
+                </div>
+            </div>
         </div>
-    </div>
-    <div class="control-panel">
-        <div class="zoom-controls">
-            <button class="zoom-btn" onclick="zoomIn()">+</button>
-            <button class="zoom-btn" onclick="zoomOut()">-</button>
-            <button class="zoom-btn" onclick="resetZoom()">重設</button>
-        </div>
-        <div class="mask-controls">
-            <button class="mask-btn" onclick="toggleDrawMode()" id="drawBtn">繪製區域</button>
+        <div class="side-panel" id="sidePanel">
+            <div class="area-list" id="areaList">
+                <h3>區域列表</h3>
+                <!-- 區域按鈕會動態添加到這裡 -->
+            </div>
         </div>
     </div>
     <div id="loading">載入中...</div>

@@ -1,25 +1,36 @@
 body {
     margin: 0;
-    padding: 0;
+    padding: 20px;
     font-family: Arial, sans-serif;
-    background-color: #f0f0f0;
+    background-color: #f5f5f5;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
 }
 
 h2 {
-    margin: 10px 0;
-    text-align: center;
+    margin: 0 0 20px 0;
+    color: #333;
+    font-size: 24px;
+}
+
+.main-container {
+    display: flex;
+    gap: 20px;
+    flex: 1;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 20px;
 }
 
 .map-container {
     flex: 1;
     position: relative;
-    width: calc(100% - 250px);
-    margin: 0;
     background-color: white;
+    border-radius: 5px;
     overflow: hidden;
+    border: 1px solid #eee;
 }
 
 #map-svg {
@@ -81,36 +92,43 @@ h2 {
 
 /* 側邊欄 */
 .side-panel {
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: 250px;
-    height: 100vh;
+    width: 300px;
     background: white;
-    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+    border-radius: 5px;
     overflow-y: auto;
-    z-index: 900;
 }
 
 .area-list {
-    padding: 20px;
+    height: 100%;
 }
 
 .area-list h3 {
     margin: 0 0 20px 0;
     color: #333;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.area-list h3::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #eee;
 }
 
 .area-button {
     display: flex;
     align-items: center;
     width: 100%;
-    padding: 10px;
+    padding: 12px;
     margin-bottom: 10px;
-    border: 1px solid #ddd;
+    border: 1px solid #eee;
     border-radius: 5px;
     background: white;
     transition: all 0.3s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .area-button:hover {
@@ -246,7 +264,7 @@ h2 {
 
 /* 控制面板 */
 .control-panel {
-    position: fixed;
+    position: absolute;
     bottom: 20px;
     left: 20px;
     display: flex;
@@ -263,20 +281,33 @@ h2 {
 
 .zoom-btn,
 .mask-btn {
-    background: rgba(0, 0, 0, 0.8);
-    color: white;
-    border: none;
+    background: white;
+    color: #333;
+    border: 1px solid #ddd;
     border-radius: 5px;
     padding: 10px 15px;
     cursor: pointer;
-    font-size: 16px;
-    transition: background 0.3s;
+    font-size: 14px;
+    transition: all 0.3s ease;
     min-width: 80px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .zoom-btn:hover,
 .mask-btn:hover {
-    background: rgba(0, 0, 0, 0.9);
+    background: #f8f8f8;
+    border-color: #ccc;
+}
+
+#drawBtn {
+    background: #2196F3;
+    color: white;
+    border: none;
+}
+
+#drawBtn:hover {
+    background: #1976D2;
+    border: none;
 }
 
 /* 繪製遮罩時的游標樣式 */
