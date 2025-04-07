@@ -43,6 +43,8 @@ h2 {
     max-height: 100%;
     width: auto;
     height: auto;
+    transform: scale(1.7);
+    transform-origin: center center;
 }
 
 .overlay-svg {
@@ -54,6 +56,8 @@ h2 {
     width: 100%;
     height: 100%;
     pointer-events: all; /* 修改這裡，允許事件穿透 */
+    transform: scale(1.7);
+    transform-origin: center center;
 }
 
 .interactive-areas {
@@ -63,14 +67,14 @@ h2 {
 .area {
     fill: none;
     stroke: #666;
-    stroke-width: 2;
+    stroke-width: 0.5;
     transition: all 0.3s ease;
     cursor: pointer;
 }
 
 .area:hover {
     stroke: #444;
-    stroke-width: 3;
+    stroke-width: 1.5;
 }
 
 .area.completed {
@@ -80,19 +84,31 @@ h2 {
 
 .area.completed:hover {
     stroke: #45a049;
-    stroke-width: 3;
+    stroke-width: 1.5;
 }
 
-.full-mask {
-    fill: rgba(128, 128, 128, 0.5);
+.area-mask {
     pointer-events: none;
 }
 
+.area-mask.gray {
+    fill: rgba(128, 128, 128, 0.5);
+}
+
+.area-mask.blue {
+    fill: rgba(0, 120, 255, 0.4);
+}
+
+.area-mask.green {
+    fill: rgba(40, 200, 40, 0.4);
+}
+
 .drawing {
-    fill: none;
+    fill: rgba(33, 150, 243, 0.1);
     stroke: #2196F3;
-    stroke-width: 2;
-    stroke-dasharray: 5,5;
+    stroke-width: 1;
+    stroke-dasharray: 2,2;
+    pointer-events: none;
 }
 
 /* 側邊欄 */
@@ -110,24 +126,50 @@ h2 {
     padding: 20px;
 }
 
-.area-list h3 {
-    margin: 0 0 20px 0;
-    color: #333;
-    font-size: 18px;
+.area-list-header {
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between;
+    gap: 15px;
+    margin-bottom: 20px;
     position: sticky;
     top: 0;
     background: white;
     padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
 }
 
-.area-list h3::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: #eee;
+.area-list-header h3 {
+    margin: 0;
+    color: #333;
+    font-size: 18px;
+    white-space: nowrap;
+}
+
+.area-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 5px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.mask-select {
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: white;
+    font-size: 14px;
+    min-width: 80px;
+}
+
+.mask-select:focus {
+    outline: none;
+    border-color: #2196F3;
 }
 
 .area-button {
@@ -147,9 +189,28 @@ h2 {
     background: #f5f5f5;
 }
 
-.area-button.completed {
-    border-color: #4CAF50;
-    color: #4CAF50;
+.area-button.completed-gray {
+    background-color: #808080;
+    color: white;
+    border-color: #666666;
+}
+
+.area-button.completed-red {
+    background-color: #ff4444;
+    color: white;
+    border-color: #cc0000;
+}
+
+.area-button.completed-blue {
+    background-color: #4444ff;
+    color: white;
+    border-color: #0000cc;
+}
+
+.area-button.completed-green {
+    background-color: #44ff44;
+    color: white;
+    border-color: #00cc00;
 }
 
 .area-name {
@@ -158,6 +219,27 @@ h2 {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.color-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.color-indicator.gray {
+    background-color: rgba(128, 128, 128, 0.5);
+}
+
+.color-indicator.blue {
+    background-color: rgba(0, 120, 255, 0.4);
+}
+
+.color-indicator.green {
+    background-color: rgba(40, 200, 40, 0.4);
 }
 
 .area-controls {
@@ -274,63 +356,20 @@ h2 {
     white-space: nowrap;
 }
 
-/* 控制面板 */
-.control-panel {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    z-index: 1000;
-}
-
-.zoom-controls,
-.mask-controls {
-    display: flex;
-    gap: 5px;
-    background: rgba(255, 255, 255, 0.9);
-    padding: 5px;
-    border-radius: 5px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.zoom-btn,
+/* 新增區域按鈕 */
 .mask-btn {
-    background: white;
-    color: #333;
-    border: 1px solid #eee;
-    border-radius: 4px;
-    padding: 8px 12px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all 0.2s ease;
-    min-width: unset;
-}
-
-.zoom-btn {
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.zoom-btn:hover,
-.mask-btn:hover {
-    background: #f8f8f8;
-    border-color: #ddd;
-}
-
-#drawBtn {
     background: #2196F3;
     color: white;
     border: none;
+    border-radius: 4px;
     padding: 8px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
 }
 
-#drawBtn:hover {
+.mask-btn:hover {
     background: #1976D2;
 }
 
@@ -338,3 +377,20 @@ h2 {
 body.drawing-mask {
     cursor: crosshair;
 }
+
+/* 控制點樣式 */
+.control-point.area {
+    fill: none;
+    stroke: #2196F3;
+    stroke-width: 1;
+    cursor: pointer;
+}
+
+.control-point:hover {
+    fill: #2196F3;
+}
+
+.control-point.nw { cursor: nw-resize; }
+.control-point.ne { cursor: ne-resize; }
+.control-point.sw { cursor: sw-resize; }
+.control-point.se { cursor: se-resize; }

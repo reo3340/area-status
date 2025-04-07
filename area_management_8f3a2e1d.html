@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>網路施工進度</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <h2>網路施工進度</h2>
+    <div class="main-container" style="display: grid; grid-template-columns: 1fr auto;">
+        <div class="map-container" id="mapContainer">
+            <object data="./CTC_ELE.svg" type="image/svg+xml" id="map-svg"></object>
+            <svg class="overlay-svg" id="overlaySvg">
+                <!-- 可點擊區域 -->
+                <g class="interactive-areas"></g>
+                <!-- 遮罩區域 -->
+                <g class="mask-areas equipment"></g>
+                <g class="mask-areas electrical-box"></g>
+                <!-- 繪製中的區域 -->
+                <path id="drawingArea" class="drawing" style="display: none;"/>
+            </svg>
+            <div class="tooltip" id="tooltip"></div>
+
+        </div>
+        <div class="side-panel" id="sidePanel">
+            <div class="area-list" id="equipmentList">
+                <div class="area-list-header">
+                    <h3>設備區域</h3>
+                    <button class="mask-btn" onclick="toggleDrawMode('equipment', this)" id="equipmentBtn">新增設備區域</button>
+                </div>
+                <!-- 區域按鈕會動態添加到這裡 -->
+            </div>
+            <div class="area-list" id="electricalBoxList">
+                <div class="area-list-header">
+                    <h3>電箱區域</h3>
+                    <button class="mask-btn" id="electricalBoxBtn" onclick="toggleDrawMode('electrical-box', this)">新增電箱區域</button>
+                </div>
+                <!-- 區域按鈕會動態添加到這裡 -->
+            </div>
+        </div>
+    </div>
+    <div id="loading">載入中...</div>
+
+    <style>
+        #accessModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        #accessModal .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            width: 300px;
+            text-align: center;
+        }
+
+        #accessModal input {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        #accessModal .modal-buttons {
+            margin-top: 15px;
+        }
+
+        #accessModal .confirm-btn {
+            padding: 8px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #accessModal .confirm-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+
+    <!-- 訪問碼輸入對話框 -->
+    <div class="modal" id="accessModal" style="display: none;">
+        <div class="modal-content">
+            <h3>輸入訪問碼</h3>
+            <input type="password" id="accessInput" placeholder="請輸入訪問碼">
+            <div class="modal-buttons">
+                <button class="confirm-btn" onclick="verifyAccess()">確定</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 命名對話框 -->
+    <div class="modal" id="nameModal">
+        <div class="modal-content">
+            <h3>命名區域</h3>
+            <input type="text" id="areaName" placeholder="請輸入區域名稱">
+            <div class="modal-buttons">
+                <button class="confirm-btn" onclick="confirmAreaName()">確定</button>
+                <button class="cancel-btn" onclick="cancelAreaName()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全域變數
+        let isAuthenticated = false;
+        const correctToken = '4521';
+
+        // 顯示訪問碼輸入對話框
+        function showAccessModal() {
+            document.getElementById('accessModal').style.display = 'flex';
+            document.getElementById('accessInput').focus();
+        }
+
+        // 隱藏主要內容
+        function hideMainContent() {
+            document.querySelector('.main-container').style.visibility = 'hidden';
+            document.getElementById('nameModal').style.display = 'none';
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // 顯示主要內容
+        function showMainContent() {
+            const mainContainer = document.querySelector('.main-container');
+            mainContainer.style.visibility = 'visible';
+            mainContainer.style.display = 'grid';
+            document.getElementById('accessModal').style.display = 'none';
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // 驗證訪問碼
+        function verifyAccess() {
+            const accessInput = document.getElementById('accessInput');
+            if (accessInput.value === correctToken) {
+                isAuthenticated = true;
+                showMainContent();
+                initializeApp(); // 初始化應用
+            } else {
+                alert('訪問碼不正確');
+                accessInput.value = '';
+                accessInput.focus();
+            }
+        }
+
+        // 監聽 Enter 鍵
+        document.getElementById('accessInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                verifyAccess();
+            }
+        });
+
+        // 初始化應用
+        function initializeApp() {
+            // 將原本的初始化代碼移到這裡
+            resetDrawingState();
+        }
+
+        // 初始設置
+        hideMainContent();
+        showAccessModal();
+
+        // 全域變數
+        let isDrawing = false;
+        let points = [];
+        let tempArea = null;
+        let currentAreaType = null;
+        let drawingButton = null;
+        let selectedArea = null;
+        let isDragging = false;
+        let currentScale = 1.7;
+        let isPanning = false;
+        let startPanPoint = null;
+        
+        // DOM 元素
+        const mapContainer = document.getElementById('mapContainer');
+        const mapSvg = document.getElementById('map-svg');
+        const overlaySvg = document.getElementById('overlaySvg');
+        const interactiveAreas = overlaySvg.querySelector('.interactive-areas');
+        const drawingArea = document.getElementById('drawingArea');
+        const equipmentBtn = document.getElementById('equipmentBtn');
+        const electricalBoxBtn = document.getElementById('electricalBoxBtn');
+        const nameModal = document.getElementById('nameModal');
+        const areaNameInput = document.getElementById('areaName');
+        const equipmentList = document.getElementById('equipmentList');
+        const electricalBoxList = document.getElementById('electricalBoxList');
+
+        // 重置所有狀態
+        function resetDrawingState() {
+            isDrawing = false;
+            currentAreaType = null;
+            points = [];
+            startPoint = null;
+            drawingArea.style.display = 'none';
+            drawingButton = null;
+            equipmentBtn.textContent = '新增設備區域';
+            electricalBoxBtn.textContent = '新增電箱區域';
+            overlaySvg.style.cursor = 'default';
+        }
+
+        // 修正 SVG 的寬高比例和縮放功能
+        mapSvg.addEventListener('load', function() {
+            const svgDoc = mapSvg.contentDocument;
+            if (svgDoc) {
+                const svgElement = svgDoc.querySelector('svg');
+                if (svgElement) {
+                    const viewBox = svgElement.getAttribute('viewBox');
+                    if (viewBox) {
+                        overlaySvg.setAttribute('viewBox', viewBox);
+                    }
+                }
+            }
+            // 載入區域資料
+            loadAreas();
+
+            // 滾輪縮放
+            mapContainer.addEventListener('wheel', function(e) {
+                e.preventDefault();
+                if (isDrawing) return; // 繪製時不允許縮放
+
+                const delta = e.deltaY;
+                const scaleChange = delta > 0 ? 0.9 : 1.1;
+                const newScale = currentScale * scaleChange;
+
+                // 限制縮放範圍
+                if (newScale >= 0.5 && newScale <= 5) {
+                    currentScale = newScale;
+                    mapSvg.style.transform = `scale(${currentScale})`;
+                    overlaySvg.style.transform = `scale(${currentScale})`;
+                    clearAreas(); // 先清除現有的區域
+                    loadAreas(); // 在地圖載入後才載入區域
+                }
+            });
+
+            // 使用滑鼠左鍵拖曳地圖
+            mapContainer.addEventListener('mousedown', function(e) {
+                if (!isDrawing && e.button === 0) { // 只有在非繪製模式且是左鍵時才能拖曳
+                    isPanning = true;
+                    startPanPoint = { x: e.clientX, y: e.clientY };
+                    mapContainer.style.cursor = 'grabbing';
+                }
+            });
+
+            mapContainer.addEventListener('mousemove', function(e) {
+                if (isPanning && startPanPoint) {
+                    const dx = e.clientX - startPanPoint.x;
+                    const dy = e.clientY - startPanPoint.y;
+                    
+                    mapSvg.style.transform = `scale(${currentScale}) translate(${dx}px, ${dy}px)`;
+                    overlaySvg.style.transform = `scale(${currentScale}) translate(${dx}px, ${dy}px)`;
+                }
+            });
+
+            mapContainer.addEventListener('mouseup', function() {
+                if (isPanning) {
+                    isPanning = false;
+                    startPanPoint = null;
+                    mapContainer.style.cursor = 'default';
+                }
+            });
+
+            mapContainer.addEventListener('mouseleave', function() {
+                if (isPanning) {
+                    isPanning = false;
+                    startPanPoint = null;
+                    mapContainer.style.cursor = 'default';
+                }
+            });
+        });
+
+        // 載入區域資料
+        function loadAreas() {
+            const savedAreas = localStorage.getItem('areas');
+            if (!savedAreas) return;
+
+            try {
+                const areas = JSON.parse(savedAreas);
+                areas.forEach(areaData => {
+                    const area = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                    area.setAttribute('id', areaData.id);
+                    area.setAttribute('class', 'area');
+                    area.setAttribute('d', areaData.path);
+                    area.setAttribute('data-name', areaData.name);
+                    area.setAttribute('data-area-type', areaData.areaType);
+                    interactiveAreas.appendChild(area);
+
+                    // 創建區域按鈕
+                    const areaItem = document.createElement('div');
+                    areaItem.classList.add('area-item');
+                    areaItem.setAttribute('data-area-id', areaData.id);
+                    areaItem.setAttribute('data-area-type', areaData.areaType);
+                    areaItem.innerHTML = `
+                        <div class="color-indicator ${areaData.color}"></div>
+                        <span class="area-name" onclick="editAreaName('${areaData.id}')">${areaData.name}</span>
+                        <select class="mask-select" onchange="toggleAreaMask(document.getElementById('${areaData.id}'), this.value)">
+                            <option value="gray" ${areaData.color === 'gray' ? 'selected' : ''}>施工中</option>
+                            <option value="blue" ${areaData.color === 'blue' ? 'selected' : ''}>配線完成</option>
+                            <option value="green" ${areaData.color === 'green' ? 'selected' : ''}>連線成功</option>
+                        </select>
+                        <button class="delete-btn" onclick="deleteArea('${areaData.id}')">刪除</button>
+                    `;
+
+                    if (areaData.areaType === 'equipment') {
+                        equipmentList.appendChild(areaItem);
+                    } else {
+                        electricalBoxList.appendChild(areaItem);
+                    }
+
+                    // 如果有選擇顏色，則創建遮罩
+                    if (areaData.color && areaData.color !== 'none') {
+                        const mask = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                        mask.setAttribute('id', `mask-${areaData.id}`);
+                        mask.setAttribute('d', areaData.path);
+                        mask.setAttribute('class', `area-mask ${areaData.color}`);
+                        const maskGroup = document.querySelector(`.mask-areas.${areaData.areaType}`);
+                        if (maskGroup) {
+                            maskGroup.appendChild(mask);
+                        }
+                    }
+
+                    // 添加事件監聽器
+                    area.addEventListener('contextmenu', function(e) {
+                        e.preventDefault(); // 阻止默認右鍵選單
+                        if (!isDrawing) {
+                            startDragging(e, area);
+                        }
+                    });
+
+                    area.addEventListener('mousemove', function(e) {
+                        if (isDragging && selectedArea === area) {
+                            dragArea(e);
+                        }
+                    });
+
+                    area.addEventListener('mouseup', function(e) {
+                        if (isDragging && selectedArea === area && e.button === 2) { // 只有右鍵才停止拖曳
+                            stopDragging();
+                        }
+                    });
+
+                    area.addEventListener('mouseleave', function() {
+                        if (isDragging && selectedArea === area) {
+                            stopDragging();
+                        }
+                    });
+
+
+                });
+            } catch (error) {
+                console.error('Error loading areas:', error);
+            }
+        }
+
+        function toggleDrawMode(areaType, button) {
+            // 如果已經在繪製且點擊相同按鈕，則完成繪製
+            if (isDrawing && button === drawingButton) {
+                resetDrawingState();
+                return;
+            }
+
+            // 重置其他按鈕狀態
+            if (areaType === 'equipment') {
+                electricalBoxBtn.textContent = '新增電箱區域';
+            } else {
+                equipmentBtn.textContent = '新增設備區域';
+            }
+
+            // 設定繪製模式
+            isDrawing = true;
+            currentAreaType = areaType;
+            drawingButton = button;
+            button.textContent = '取消繪製';
+            overlaySvg.style.cursor = 'crosshair';
+        }
+
+        function getMousePosition(e) {
+            try {
+                const CTM = overlaySvg.getScreenCTM();
+                if (!CTM) return null;
+
+                const point = overlaySvg.createSVGPoint();
+                point.x = e.clientX;
+                point.y = e.clientY;
+                
+                const transformed = point.matrixTransform(CTM.inverse());
+                if (isNaN(transformed.x) || isNaN(transformed.y)) return null;
+                
+                return transformed;
+            } catch (error) {
+                console.error('Error getting mouse position:', error);
+                return null;
+            }
+        }
+
+        function generatePathData(startPoint, currentPoint) {
+            if (!startPoint || !currentPoint) return '';
+            
+            const x1 = Math.min(startPoint.x, currentPoint.x);
+            const y1 = Math.min(startPoint.y, currentPoint.y);
+            const x2 = Math.max(startPoint.x, currentPoint.x);
+            const y2 = Math.max(startPoint.y, currentPoint.y);
+            
+            if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) return '';
+            
+            return `M ${x1} ${y1} L ${x2} ${y1} L ${x2} ${y2} L ${x1} ${y2} Z`;
+        }
+
+        function updateDrawingPath(currentPoint = null, mousePoint = null) {
+            if (!startPoint) {
+                drawingArea.style.display = 'none';
+                return;
+            }
+
+            drawingArea.style.display = 'block';
+            const pathData = generatePathData(startPoint, mousePoint || currentPoint || startPoint);
+            drawingArea.setAttribute('d', pathData);
+            drawingArea.style.display = 'block';
+        }
+
+        let startPoint = null;
+        let draggedArea = null;
+        let dragStartPos = null;
+
+        overlaySvg.addEventListener('mousedown', function(e) {
+            const point = getMousePosition(e);
+            if (!point) return;
+
+            if (!isDrawing) {
+                // 檢查是否點擊了已存在的區域
+                const clickedArea = e.target.closest('.area');
+                if (clickedArea) {
+                    isDragging = true;
+                    draggedArea = clickedArea;
+                    dragStartPos = {
+                        x: point.x,
+                        y: point.y,
+                        pathD: clickedArea.getAttribute('d')
+                    };
+                }
+                return;
+            }
+
+            // 開始繪製
+            startPoint = point;
+            drawingArea.style.display = 'block';
+            updateDrawingPath(null, point);
+        });
+
+        overlaySvg.addEventListener('mousemove', function(e) {
+            const point = getMousePosition(e);
+            if (!point) return;
+
+            if (isDragging && draggedArea && dragStartPos && e.buttons === 2) { // 確保右鍵按住
+                // 計算移動距離
+                const dx = point.x - dragStartPos.x;
+                const dy = point.y - dragStartPos.y;
+
+                // 移動區域
+                const pathD = dragStartPos.pathD;
+                const movedPath = movePath(pathD, dx, dy);
+                draggedArea.setAttribute('d', movedPath);
+
+                // 同時移動遮罩
+                const maskId = `mask-${draggedArea.id}`;
+                const mask = document.querySelector(`#${maskId}`);
+                if (mask) {
+                    mask.setAttribute('d', movedPath);
+                }
+            } else if (isDrawing && startPoint) {
+                // 更新繪製中的方形
+                drawingArea.style.display = 'block';
+                updateDrawingPath(null, point);
+            }
+        });
+
+        overlaySvg.addEventListener('mouseup', function(e) {
+            if (isDragging && e.button === 2) { // 只有右鍵才結束拖曳
+                isDragging = false;
+                draggedArea = null;
+                dragStartPos = null;
+                // 保存變更
+                saveAreas();
+                return;
+            }
+
+            if (!isDrawing || !startPoint) return;
+
+            const point = getMousePosition(e);
+            if (!point) return;
+
+            // 如果點擊的位置距離太近，則不創建區域
+            const dx = point.x - startPoint.x;
+            const dy = point.y - startPoint.y;
+            if (Math.abs(dx) < 5 && Math.abs(dy) < 5) {
+                startPoint = null;
+                drawingArea.style.display = 'none';
+                return;
+            }
+
+            // 完成繪製
+            const path = generatePathData(startPoint, point);
+            const id = `area-${Date.now()}`;
+            const area = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            area.setAttribute('id', id);
+            area.setAttribute('class', 'area');
+            area.setAttribute('d', path);
+            area.setAttribute('data-area-type', currentAreaType);
+            interactiveAreas.appendChild(area);
+            tempArea = area;
+
+            // 重置繪製狀態
+            startPoint = null;
+            points = [];
+            drawingArea.style.display = 'none';
+
+            // 顯示命名對話框
+            showNameModal();
+        });
+
+        // 新增移動路徑的輔助函數
+        function movePath(pathD, dx, dy) {
+            return pathD.replace(/([\d.]+)[\s,]([\d.]+)/g, function(match, x, y) {
+                return `${parseFloat(x) + dx} ${parseFloat(y) + dy}`;
+            });
+        }
+
+        function finishDrawing() {
+            if (points.length < 3) return;
+
+            const path = generatePathData(true);
+            const id = `area-${Date.now()}`;
+            const type = currentAreaType;
+
+            // 創建新區域
+            const area = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            area.setAttribute('id', id);
+            area.setAttribute('class', 'area');
+            area.setAttribute('d', path);
+            area.setAttribute('data-area-type', type);
+
+            // 添加事件監聽器
+            area.addEventListener('click', function(e) {
+                if (!isDrawing) {
+                    toggleAreaMask(this);
+                }
+            });
+
+            if (color && color !== 'none') {
+                const mask = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                mask.setAttribute("id", `mask-${areaId}`);
+                mask.setAttribute("d", area.getAttribute("d"));
+                mask.setAttribute("class", `area-mask ${color}`);
+                const maskGroup = document.querySelector(`.mask-areas.${areaType}`);
+                if (maskGroup) {
+                    maskGroup.appendChild(mask);
+                }
+            }
+
+            // 保存變更
+            saveAreas();
+        }
+
+        function deleteArea(areaId) {
+            const area = document.getElementById(areaId);
+            const areaItem = document.querySelector(`[data-area-id="${areaId}"]`);
+            const mask = document.querySelector(`#mask-${areaId}`);
+            const areaType = area ? area.getAttribute('data-area-type') : null;
+
+            if (area) area.remove();
+            if (areaItem) areaItem.remove();
+            if (mask) mask.remove();
+
+            // 保存變更
+            saveAreas();
+
+            // 重置按鈕狀態
+            if (isDrawing && currentAreaType === areaType) {
+                isDrawing = false;
+                currentAreaType = null;
+                equipmentBtn.textContent = '新增設備區域';
+                electricalBoxBtn.textContent = '新增電箱區域';
+                overlaySvg.style.cursor = 'default';
+            }
+        }
+
+        function showTooltip(event, text) {
+            const tooltip = document.getElementById('tooltip');
+            tooltip.textContent = text;
+            tooltip.style.display = 'block';
+            tooltip.style.left = (event.pageX + 10) + 'px';
+            tooltip.style.top = (event.pageY + 10) + 'px';
+        }
+
+        function hideTooltip() {
+            document.getElementById('tooltip').style.display = 'none';
+        }
+
+        // 保存區域資料
+        function saveAreas() {
+            const areas = [];
+            document.querySelectorAll('.area').forEach(area => {
+                const id = area.id;
+                const name = area.getAttribute('data-name');
+                const path = area.getAttribute('d');
+                const areaType = area.getAttribute('data-area-type');
+                const mask = document.querySelector(`#mask-${id}`);
+                const color = mask ? mask.classList[1] : 'none';
+                
+                areas.push({
+                    id,
+                    name,
+                    path,
+                    color,
+                    areaType
+                });
+            });
+
+            // 將資料保存到 localStorage
+            localStorage.setItem('areas', JSON.stringify(areas));
+        }
+
+        // 刪除區域時也要保存
+        const originalDeleteArea = deleteArea;
+        deleteArea = function(areaId) {
+            // 刪除控制點
+            const controlPoints = document.querySelector(`g[data-area-id="${areaId}"]`);
+            if (controlPoints) controlPoints.remove();
+            
+            originalDeleteArea(areaId);
+            saveAreas();
+        };
+
+
+
+        // 開始拖曳
+        function startDragging(e, area) {
+            if (e.button === 2) { // 只有右鍵才能拖曳避免與地圖拖曳衝突
+                isDragging = true;
+                selectedArea = area;
+                dragStartPos = getMousePosition(e);
+            }
+        }
+
+        // 拖曳區域
+        function dragArea(e) {
+            if (!isDragging || !selectedArea || e.buttons !== 2) return; // 確保右鍵按住
+
+            const currentPos = getMousePosition(e);
+            if (!currentPos) return;
+
+            const dx = currentPos.x - dragStartPos.x;
+            const dy = currentPos.y - dragStartPos.y;
+
+            // 更新區域路徑
+            const pathD = selectedArea.getAttribute('d');
+            selectedArea.setAttribute('d', movePath(pathD, dx, dy));
+
+            // 更新遮罩
+            const maskId = `mask-${selectedArea.id}`;
+            const mask = document.querySelector(`#${maskId}`);
+            if (mask) {
+                mask.setAttribute('d', movePath(pathD, dx, dy));
+            }
+
+            dragStartPos = currentPos;
+        }
+
+        // 停止拖曳
+        function stopDragging() {
+            isDragging = false;
+            selectedArea = null;
+            dragStartPos = null;
+            saveAreas(); // 保存變更
+        }
+
+        // 切換區域面罩
+        function toggleAreaMask(area, color) {
+            const maskId = `mask-${area.id}`;
+            const mask = document.querySelector(`#${maskId}`);
+            if (mask) {
+                mask.classList.remove('gray', 'red', 'blue', 'green');
+                mask.classList.add(color); // 無論如何都會有一個顏色
+            }
+
+            // 更新面罩選擇和顏色指示器
+            const areaItem = document.querySelector(`.area-item[data-area-id="${area.id}"]`);
+            if (areaItem) {
+                const select = areaItem.querySelector('.mask-select');
+                const colorIndicator = areaItem.querySelector('.color-indicator');
+                select.value = color;
+                colorIndicator.className = `color-indicator ${color}`;
+            }
+
+            // 保存變更
+            saveAreas();
+        }
+
+        // 編輯區域名稱
+        function editAreaName(areaId) {
+            const areaItem = document.querySelector(`.area-item[data-area-id="${areaId}"]`);
+            if (!areaItem) return;
+
+            const nameSpan = areaItem.querySelector('.area-name');
+            const currentName = nameSpan.textContent;
+
+            // 創建輸入框
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentName;
+            input.style.width = '100%';
+            input.style.marginRight = '10px';
+            input.style.padding = '2px 5px';
+            input.style.border = '1px solid #ddd';
+            input.style.borderRadius = '3px';
+
+            // 替換名稱元素
+            nameSpan.style.display = 'none';
+            nameSpan.parentNode.insertBefore(input, nameSpan);
+            input.focus();
+
+            let isEditing = true;
+
+            // 處理完成編輯
+            function finishEdit() {
+                if (!isEditing) return;
+                isEditing = false;
+
+                const newName = input.value.trim();
+                if (newName) {
+                    nameSpan.textContent = newName;
+                    // 更新區域的 title 屬性
+                    const area = document.getElementById(areaId);
+                    if (area) {
+                        area.setAttribute('title', newName);
+                    }
+                }
+                nameSpan.style.display = '';
+                if (input.parentNode) {
+                    input.remove();
+                }
+                saveAreas(); // 保存變更
+            }
+
+            // 編輯完成事件
+            input.addEventListener('blur', () => {
+                setTimeout(finishEdit, 100); // 給予時間讓 keydown 事件先觸發
+            });
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    finishEdit();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    isEditing = false;
+                    nameSpan.style.display = '';
+                    if (input.parentNode) {
+                        input.remove();
+                    }
+                }
+            });
+        }
+
+        // 顯示命名對話框
+        function showNameModal() {
+            nameModal.style.display = 'flex';
+            areaNameInput.value = '';
+            areaNameInput.focus();
+        }
+
+        // 隱藏命名對話框
+        function hideNameModal() {
+            nameModal.style.display = 'none';
+            areaNameInput.value = '';
+        }
+
+        // 取消區域命名
+        function cancelAreaName() {
+            if (tempArea) {
+                tempArea.remove();
+                tempArea = null;
+            }
+            hideNameModal();
+            resetDrawingState();
+        }
+
+        // 確認區域命名
+        function confirmAreaName() {
+            const name = areaNameInput.value.trim();
+            if (!name) {
+                alert('請輸入區域名稱');
+                return;
+            }
+
+            const areaId = `area-${Date.now()}`;
+
+            // 創建新區域
+            const area = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            area.setAttribute('d', tempArea.getAttribute('d'));
+            area.setAttribute('class', 'area');
+            area.setAttribute('id', areaId);
+            area.setAttribute('title', name);
+
+            // 創建遮罩
+            const mask = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            mask.setAttribute('d', tempArea.getAttribute('d'));
+            mask.setAttribute('class', 'area-mask gray'); // 預設為灰色
+            mask.setAttribute('id', `mask-${areaId}`);
+
+            // 添加到 SVG
+            const maskGroup = overlaySvg.querySelector(`.mask-areas.${currentAreaType}`);
+            const areaGroup = overlaySvg.querySelector('.interactive-areas');
+            areaGroup.appendChild(area);
+            maskGroup.appendChild(mask);
+
+            // 創建區域項目
+            const areaItem = document.createElement('div');
+            areaItem.classList.add('area-item');
+            areaItem.setAttribute('data-area-id', areaId);
+            areaItem.setAttribute('data-area-type', currentAreaType);
+            areaItem.innerHTML = `
+                <div class="color-indicator gray"></div>
+                <span class="area-name" onclick="editAreaName('${areaId}')">${name}</span>
+                <select class="mask-select" onchange="toggleAreaMask(document.getElementById('${areaId}'), this.value)">
+                    <option value="gray" selected>施工中</option>
+                    <option value="blue">配線完成</option>
+                    <option value="green">連線成功</option>
+                </select>
+                <button class="delete-btn" onclick="deleteArea('${areaId}')">刪除</button>
+            `;
+
+            // 添加區域項目到清單
+            const targetList = currentAreaType === 'equipment' ? equipmentList : electricalBoxList;
+            targetList.appendChild(areaItem);
+
+            // 添加事件監聽器
+            area.addEventListener('contextmenu', function(e) {
+                e.preventDefault(); // 阻止默認右鍵選單
+                if (!isDrawing) {
+                    startDragging(e, area);
+                }
+            });
+
+            area.addEventListener('mousemove', function(e) {
+                if (isDragging && selectedArea === area) {
+                    dragArea(e);
+                }
+            });
+
+            area.addEventListener('mouseup', function(e) {
+                if (isDragging && selectedArea === area && e.button === 2) { // 只有右鍵才停止拖曳
+                    stopDragging();
+                }
+            });
+
+            area.addEventListener('mouseleave', function() {
+                if (isDragging && selectedArea === area) {
+                    stopDragging();
+                }
+            });
+
+            // 保存變更
+            saveAreas();
+
+            // 重置狀態
+            resetDrawingState();
+            nameModal.style.display = 'none';
+            areaNameInput.value = '';
+            tempArea = null;
+        }
+
+        // 保存區域資料
+        function saveAreas() {
+            const areas = [];
+            document.querySelectorAll('.area').forEach(area => {
+                const areaId = area.id;
+                const mask = document.querySelector(`#mask-${areaId}`);
+                const areaItem = document.querySelector(`.area-item[data-area-id="${areaId}"]`);
+                
+                if (areaItem && mask) {
+                    const name = areaItem.querySelector('.area-name').textContent;
+                    const type = areaItem.getAttribute('data-area-type');
+                    const pathD = area.getAttribute('d');
+                    const status = areaItem.querySelector('.mask-select').value;
+
+                    areas.push({
+                        id: areaId,
+                        name: name,
+                        type: type,
+                        pathD: pathD,
+                        status: status
+                    });
+                }
+            });
+
+            localStorage.setItem('areas', JSON.stringify(areas));
+        }
+
+        // 載入區域資料
+        function loadAreas() {
+            const savedAreas = localStorage.getItem('areas');
+            if (!savedAreas) return;
+
+            try {
+                const areas = JSON.parse(savedAreas);
+                areas.forEach(areaData => {
+                    if (!areaData || !areaData.id || !areaData.name || !areaData.type || !areaData.pathD) return;
+
+                    // 創建區域
+                    const area = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    area.setAttribute('d', areaData.pathD);
+                    area.setAttribute('class', 'area');
+                    area.setAttribute('id', areaData.id);
+                    area.setAttribute('title', areaData.name);
+
+                    // 創建遮罩
+                    const mask = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    mask.setAttribute('d', areaData.pathD);
+                    mask.setAttribute('class', `area-mask ${areaData.status || 'gray'}`);
+                    mask.setAttribute('id', `mask-${areaData.id}`);
+
+                    // 添加到 SVG
+                    const maskGroup = overlaySvg.querySelector(`.mask-areas.${areaData.type}`);
+                    const areaGroup = overlaySvg.querySelector('.interactive-areas');
+                    if (maskGroup && areaGroup) {
+                        areaGroup.appendChild(area);
+                        maskGroup.appendChild(mask);
+
+                        // 創建區域項目
+                        const areaItem = document.createElement('div');
+                        areaItem.classList.add('area-item');
+                        areaItem.setAttribute('data-area-id', areaData.id);
+                        areaItem.setAttribute('data-area-type', areaData.type);
+                        areaItem.innerHTML = `
+                            <div class="color-indicator ${areaData.status || 'gray'}"></div>
+                            <span class="area-name" onclick="editAreaName('${areaData.id}')">${areaData.name}</span>
+                            <select class="mask-select" onchange="toggleAreaMask(document.getElementById('${areaData.id}'), this.value)">
+                                <option value="gray" ${areaData.status === 'gray' ? 'selected' : ''}>施工中</option>
+                                <option value="blue" ${areaData.status === 'blue' ? 'selected' : ''}>配線完成</option>
+                                <option value="green" ${areaData.status === 'green' ? 'selected' : ''}>連線成功</option>
+                            </select>
+                            <button class="action-btn delete-btn" onclick="deleteArea('${areaData.id}')">刪除</button>
+                        `;
+
+                        // 添加區域項目到清單
+                        const targetList = areaData.type === 'equipment' ? equipmentList : electricalBoxList;
+                        targetList.appendChild(areaItem);
+
+                        // 添加事件監聽器
+                        area.addEventListener('contextmenu', function(e) {
+                            e.preventDefault();
+                            if (!isDrawing) {
+                                startDragging(e, area);
+                            }
+                        });
+
+                        area.addEventListener('mousemove', function(e) {
+                            if (isDragging && selectedArea === area) {
+                                dragArea(e);
+                            }
+                        });
+
+                        area.addEventListener('mouseup', function(e) {
+                            if (isDragging && selectedArea === area && e.button === 2) {
+                                stopDragging();
+                            }
+                        });
+
+                        area.addEventListener('mouseleave', function() {
+                            if (isDragging && selectedArea === area) {
+                                stopDragging();
+                            }
+                        });
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading areas:', error);
+            }
+        }
+
+        // 刪除區域
+        function deleteArea(areaId) {
+            const area = document.getElementById(areaId);
+            const mask = document.getElementById(`mask-${areaId}`);
+            const areaItem = document.querySelector(`.area-item[data-area-id="${areaId}"]`);
+
+            if (area) area.remove();
+            if (mask) mask.remove();
+            if (areaItem) areaItem.remove();
+
+            saveAreas();
+        }
+
+        // 清除所有區域
+        function clearAreas() {
+            const existingAreas = document.querySelectorAll('.area');
+            const existingMasks = document.querySelectorAll('.area-mask');
+            const existingItems = document.querySelectorAll('.area-item');
+
+            existingAreas.forEach(area => area.remove());
+            existingMasks.forEach(mask => mask.remove());
+            existingItems.forEach(item => item.remove());
+        }
+
+        // 初始化
+        resetDrawingState();
+        </script>
+    </body>
+</html>

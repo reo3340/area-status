@@ -3,80 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>區域進度展示</title>
+    <title>網路施工進度（唯讀）</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <h2>區域進度展示</h2>
+    <h2>網路施工進度</h2>
     <div class="main-container">
         <div class="map-container" id="mapContainer">
             <object data="./CTC_ELE.svg" type="image/svg+xml" id="map-svg"></object>
             <svg class="overlay-svg" id="overlaySvg">
-                <defs>
-                    <mask id="holeMask">
-                        <rect width="100%" height="100%" fill="white"/>
-                        <!-- 挖空的區域會在這裡動態添加 -->
-                    </mask>
-                </defs>
-                <!-- 全圖遮罩 -->
-                <rect width="100%" height="100%" class="full-mask" mask="url(#holeMask)"/>
                 <!-- 可點擊區域 -->
                 <g class="interactive-areas"></g>
-                <!-- 繪製中的區域 -->
-                <path id="drawingArea" class="drawing" style="display: none;"/>
+                <!-- 遮罩區域 -->
+                <g class="mask-areas equipment"></g>
+                <g class="mask-areas electrical-box"></g>
             </svg>
             <div class="tooltip" id="tooltip"></div>
-            <div class="control-panel">
-                <div class="zoom-controls">
-                    <button class="zoom-btn" onclick="zoomIn()">+</button>
-                    <button class="zoom-btn" onclick="zoomOut()">-</button>
-                    <button class="zoom-btn" onclick="resetZoom()">重設</button>
-                </div>
-                <div class="mask-controls">
-                    <button class="mask-btn" onclick="toggleDrawMode()" id="drawBtn">繪製區域</button>
-                </div>
-            </div>
         </div>
         <div class="side-panel" id="sidePanel">
-            <div class="area-list" id="areaList">
-                <h3>區域列表</h3>
-                <!-- 區域按鈕會動態添加到這裡 -->
+            <div class="area-list" id="equipmentList">
+                <div class="area-list-header">
+                    <h3>設備區域</h3>
+                </div>
+                <!-- 設備區域列表 -->
+            </div>
+            <div class="area-list" id="electricalBoxList">
+                <div class="area-list-header">
+                    <h3>電箱區域</h3>
+                </div>
+                <!-- 電箱區域列表 -->
             </div>
         </div>
     </div>
     <div id="loading">載入中...</div>
-    
-    <!-- 命名對話框 -->
-    <div class="modal" id="nameModal">
-        <div class="modal-content">
-            <h3>命名區域</h3>
-            <input type="text" id="areaName" placeholder="請輸入區域名稱">
-            <div class="modal-buttons">
-                <button onclick="confirmAreaName()">確定</button>
-                <button onclick="cancelAreaName()">取消</button>
-            </div>
-        </div>
-    </div>
 
     <script>
-        let currentScale = 1.0;
-        let isDrawing = false;
-        let startPoint = null;
-        let points = [];
-        let tempArea = null;
+        // 全域變數
+        let currentScale = 1.7;
+        let isPanning = false;
+        let startPanPoint = null;
         
+        // DOM 元素
         const mapContainer = document.getElementById('mapContainer');
         const mapSvg = document.getElementById('map-svg');
         const overlaySvg = document.getElementById('overlaySvg');
         const interactiveAreas = overlaySvg.querySelector('.interactive-areas');
-        const holeMask = document.querySelector('#holeMask');
-        const drawingArea = document.getElementById('drawingArea');
-        const drawBtn = document.getElementById('drawBtn');
-        const nameModal = document.getElementById('nameModal');
-        const areaNameInput = document.getElementById('areaName');
-        const areaList = document.getElementById('areaList');
+        const equipmentList = document.getElementById('equipmentList');
+        const electricalBoxList = document.getElementById('electricalBoxList');
 
-        // 修正 SVG 的寬高比例
+        // 清除所有區域
+        function clearAreas() {
+            const existingAreas = document.querySelectorAll('.area');
+            const existingMasks = document.querySelectorAll('.area-mask');
+            const existingItems = document.querySelectorAll('.area-item');
+
+            existingAreas.forEach(area => area.remove());
+            existingMasks.forEach(mask => mask.remove());
+            existingItems.forEach(item => item.remove());
+        }
+
+        // 修正 SVG 的寬高比例和縮放功能
         mapSvg.addEventListener('load', function() {
             const svgDoc = mapSvg.contentDocument;
             if (svgDoc) {
@@ -86,204 +72,124 @@
                     if (viewBox) {
                         overlaySvg.setAttribute('viewBox', viewBox);
                     }
+
+                    // 縮放功能
+                    mapContainer.addEventListener('wheel', function(e) {
+                        e.preventDefault();
+                        const delta = e.deltaY;
+                        const scaleChange = delta > 0 ? 0.9 : 1.1;
+                        const newScale = currentScale * scaleChange;
+
+                        if (newScale >= 0.5 && newScale <= 3) {
+                            currentScale = newScale;
+                            mapSvg.style.transform = `scale(${currentScale})`;
+                            overlaySvg.style.transform = `scale(${currentScale})`;
+                        }
+                    });
+
+                    // 使用滑鼠左鍵拖曳地圖
+                    mapContainer.addEventListener('mousedown', function(e) {
+                        if (e.button === 0) {
+                            isPanning = true;
+                            startPanPoint = { x: e.clientX, y: e.clientY };
+                            mapContainer.style.cursor = 'grabbing';
+                        }
+                    });
+
+                    mapContainer.addEventListener('mousemove', function(e) {
+                        if (isPanning && startPanPoint) {
+                            const dx = e.clientX - startPanPoint.x;
+                            const dy = e.clientY - startPanPoint.y;
+                            mapContainer.scrollLeft -= dx;
+                            mapContainer.scrollTop -= dy;
+                            startPanPoint = { x: e.clientX, y: e.clientY };
+                        }
+                    });
+
+                    mapContainer.addEventListener('mouseup', function() {
+                        if (isPanning) {
+                            isPanning = false;
+                            startPanPoint = null;
+                            mapContainer.style.cursor = 'default';
+                        }
+                    });
+
+                    // 設定初始縮放
+                    mapSvg.style.transform = `scale(${currentScale})`;
+                    overlaySvg.style.transform = `scale(${currentScale})`;
+                    clearAreas(); // 先清除現有的區域
+                    loadAreas(); // 在地圖載入後才載入區域
                 }
             }
         });
 
-        function toggleDrawMode() {
-            isDrawing = !isDrawing;
-            drawBtn.textContent = isDrawing ? '完成繪製' : '繪製區域';
-            overlaySvg.style.cursor = isDrawing ? 'crosshair' : 'default';
-            points = [];
-            drawingArea.style.display = 'none';
-            updateDrawingPath();
-        }
+        // 載入區域資料
+        function loadAreas() {
+            const savedAreas = localStorage.getItem('areas');
+            if (!savedAreas) return;
 
-        function createSVGPoint(event) {
-            const point = overlaySvg.createSVGPoint();
-            point.x = event.clientX;
-            point.y = event.clientY;
-            return point.matrixTransform(overlaySvg.getScreenCTM().inverse());
-        }
+            try {
+                const areas = JSON.parse(savedAreas);
+                areas.forEach(areaData => {
+                    if (!areaData || !areaData.id || !areaData.name || !areaData.type || !areaData.pathD) return;
 
-        overlaySvg.addEventListener('click', function(e) {
-            if (!isDrawing) {
-                // 檢查是否點擊了已存在的區域
-                const clickedArea = e.target.closest('.area');
-                if (clickedArea) {
-                    toggleAreaMask(clickedArea);
-                }
-                return;
-            }
+                    // 創建區域
+                    const area = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    area.setAttribute('d', areaData.pathD);
+                    area.setAttribute('class', 'area');
+                    area.setAttribute('id', areaData.id);
+                    area.setAttribute('title', areaData.name);
 
-            e.preventDefault();
-            const point = createSVGPoint(e);
-            points.push([point.x, point.y]);
-            updateDrawingPath();
+                    // 創建遮罩
+                    const mask = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    mask.setAttribute('d', areaData.pathD);
+                    mask.setAttribute('class', `area-mask ${areaData.status}`);
+                    mask.setAttribute('id', `mask-${areaData.id}`);
 
-            // 如果點擊了起點附近，完成繪製
-            if (points.length > 2) {
-                const startX = points[0][0];
-                const startY = points[0][1];
-                const distance = Math.sqrt(
-                    Math.pow(point.x - startX, 2) + 
-                    Math.pow(point.y - startY, 2)
-                );
+                    // 添加到 SVG
+                    const maskGroup = overlaySvg.querySelector(`.mask-areas.${areaData.type}`);
+                    const areaGroup = overlaySvg.querySelector('.interactive-areas');
+                    if (maskGroup && areaGroup) {
+                        areaGroup.appendChild(area);
+                        maskGroup.appendChild(mask);
 
-                if (distance < 10) { // 如果距離小於 10 個單位
-                    finishDrawing();
-                }
-            }
-        });
+                        // 創建區域項目
+                        const areaItem = document.createElement('div');
+                        areaItem.classList.add('area-item');
+                        areaItem.setAttribute('data-area-id', areaData.id);
+                        areaItem.setAttribute('data-area-type', areaData.type);
+                        areaItem.innerHTML = `
+                            <div class="color-indicator ${areaData.status}"></div>
+                            <span class="area-name">${areaData.name}</span>
+                            <span class="status-text">${getStatusText(areaData.status)}</span>
+                        `;
 
-        overlaySvg.addEventListener('mousemove', function(e) {
-            if (!isDrawing || points.length === 0) return;
+                        // 添加區域項目到清單
+                        const targetList = areaData.type === 'equipment' ? equipmentList : electricalBoxList;
+                        targetList.appendChild(areaItem);
 
-            const point = createSVGPoint(e);
-            updateDrawingPath(point);
-        });
+                        // 添加懸停效果
+                        area.addEventListener('mouseenter', function(e) {
+                            showTooltip(e, areaData.name);
+                        });
 
-        function updateDrawingPath(currentPoint = null) {
-            if (points.length === 0) {
-                drawingArea.style.display = 'none';
-                return;
-            }
-
-            drawingArea.style.display = 'block';
-            let path = `M ${points[0][0]},${points[0][1]}`;
-            
-            for (let i = 1; i < points.length; i++) {
-                path += ` L ${points[i][0]},${points[i][1]}`;
-            }
-
-            if (currentPoint) {
-                path += ` L ${currentPoint.x},${currentPoint.y}`;
-            }
-
-            if (points.length > 2) {
-                path += ' Z';
-            }
-
-            drawingArea.setAttribute('d', path);
-        }
-
-        function showNameModal() {
-            nameModal.style.display = 'flex';
-            areaNameInput.focus();
-        }
-
-        function hideNameModal() {
-            nameModal.style.display = 'none';
-            areaNameInput.value = '';
-        }
-
-        function confirmAreaName() {
-            const name = areaNameInput.value.trim();
-            if (!name) {
-                alert('請輸入區域名稱');
-                return;
-            }
-
-            const area = tempArea;
-            area.setAttribute('data-name', name);
-            
-            // 添加區域按鈕
-            const button = document.createElement('div');
-            button.className = 'area-button';
-            button.setAttribute('data-area-id', area.id);
-            button.innerHTML = `
-                <span class="area-name">${name}</span>
-                <div class="area-controls">
-                    <button class="toggle-btn" onclick="toggleAreaMask(document.getElementById('${area.id}'))">切換</button>
-                    <button class="delete-btn" onclick="deleteArea('${area.id}')">刪除</button>
-                </div>
-            `;
-            areaList.appendChild(button);
-
-            // 添加事件監聽
-            area.addEventListener('click', function(e) {
-                if (!isDrawing) {
-                    toggleAreaMask(this);
-                }
-            });
-
-            area.addEventListener('mouseenter', function(e) {
-                showTooltip(e, this.getAttribute('data-name'));
-            });
-
-            area.addEventListener('mouseleave', function() {
-                hideTooltip();
-            });
-
-            hideNameModal();
-            tempArea = null;
-        }
-
-        function cancelAreaName() {
-            if (tempArea) {
-                tempArea.remove();
-            }
-            hideNameModal();
-            tempArea = null;
-        }
-
-        function finishDrawing() {
-            if (points.length < 3) return;
-
-            const area = document.createElementNS("http://www.w3.org/2000/svg", "path");
-            const id = 'area' + Date.now();
-            area.setAttribute('id', id);
-            area.setAttribute('class', 'area');
-
-            let path = `M ${points[0][0]},${points[0][1]}`;
-            for (let i = 1; i < points.length; i++) {
-                path += ` L ${points[i][0]},${points[i][1]}`;
-            }
-            path += ' Z';
-            area.setAttribute('d', path);
-
-            interactiveAreas.appendChild(area);
-            points = [];
-            drawingArea.style.display = 'none';
-            toggleDrawMode();
-
-            tempArea = area;
-            showNameModal();
-        }
-
-        function toggleAreaMask(area) {
-            const areaId = area.id;
-            const existingHole = holeMask.querySelector(`#hole-${areaId}`);
-            const button = document.querySelector(`button[data-area-id="${areaId}"]`);
-            
-            if (existingHole) {
-                // 如果已經有洞，就填回去（恢復遮罩）
-                existingHole.remove();
-                area.classList.remove('completed');
-                if (button) button.classList.remove('completed');
-            } else {
-                // 如果還沒有洞，就挖一個（移除遮罩）
-                const hole = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                hole.setAttribute("id", `hole-${areaId}`);
-                hole.setAttribute("d", area.getAttribute("d"));
-                hole.setAttribute("fill", "black");
-                holeMask.appendChild(hole);
-                area.classList.add('completed');
-                if (button) button.classList.add('completed');
+                        area.addEventListener('mouseleave', function() {
+                            hideTooltip();
+                        });
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading areas:', error);
             }
         }
 
-        function deleteArea(areaId) {
-            const area = document.getElementById(areaId);
-            const button = document.querySelector(`[data-area-id="${areaId}"]`);
-            const hole = holeMask.querySelector(`#hole-${areaId}`);
-
-            // 移除 SVG 中的區域
-            if (area) area.remove();
-            // 移除按鈕
-            if (button) button.remove();
-            // 移除遮罩中的洞
-            if (hole) hole.remove();
+        function getStatusText(status) {
+            const statusMap = {
+                'gray': '施工中',
+                'blue': '配線完成',
+                'green': '連線成功'
+            };
+            return statusMap[status] || status;
         }
 
         function showTooltip(event, text) {
@@ -297,32 +203,6 @@
         function hideTooltip() {
             document.getElementById('tooltip').style.display = 'none';
         }
-
-        function updateZoom() {
-            mapSvg.style.width = (100 * currentScale) + '%';
-            mapSvg.style.height = (100 * currentScale) + '%';
-            overlaySvg.style.width = (100 * currentScale) + '%';
-            overlaySvg.style.height = (100 * currentScale) + '%';
-        }
-
-        function zoomIn() {
-            currentScale *= 1.2;
-            updateZoom();
-        }
-
-        function zoomOut() {
-            currentScale /= 1.2;
-            if (currentScale < 1) currentScale = 1;
-            updateZoom();
-        }
-
-        function resetZoom() {
-            currentScale = 1.0;
-            updateZoom();
-        }
-
-        // 初始化
-        updateZoom();
     </script>
 </body>
 </html>
