@@ -1785,11 +1785,30 @@ function saveAreas() {
         }
     });
     
-    // 保存所有區域資料，包含分類
-    localStorage.setItem('areas', JSON.stringify({
+    // 準備要儲存的資料
+    const areasData = {
         equipment: equipmentAreas,
-        'electrical-box': electricalBoxAreas
-    }));
+        'electrical-box': electricalBoxAreas,
+        lastUpdated: new Date().toISOString()
+    };
+
+    // 保存到 localStorage
+    localStorage.setItem('areas', JSON.stringify(areasData));
+
+    // 保存到檔案
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/save-areas', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                console.log('資料已成功儲存到檔案');
+            } else {
+                console.error('儲存資料到檔案時發生錯誤');
+            }
+        }
+    };
+    xhr.send(JSON.stringify(areasData));
 }
 
 // 檢查區域列表結構

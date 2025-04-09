@@ -1,8 +1,0 @@
-{
-  "areas": [
-    {"id": "zone1", "name": "第一區", "completed": false},
-    {"id": "zone2", "name": "第二區", "completed": false},
-    {"id": "zone3", "name": "第三區", "completed": false}
-  ],
-  "lastUpdated": "2025-04-02T15:46:52+08:00"
-}
