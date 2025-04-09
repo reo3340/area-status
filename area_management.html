@@ -29,6 +29,10 @@
             <div class="area-list" id="equipmentList">
                 <div class="area-list-header">
                     <h3>設備區域</h3>
+                    <button class="mask-btn" onclick="toggleDrawMode('equipment', this)" id="equipmentBtn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        新增設備區域
+                    </button>
                 </div>
                 <div class="area-list-content" id="equipmentListContent">
                     <!-- 區域按鈕會動態添加到這裡 -->
@@ -37,6 +41,10 @@
             <div class="area-list" id="electricalBoxList">
                 <div class="area-list-header">
                     <h3>電箱區域</h3>
+                    <button class="mask-btn" id="electricalBoxBtn" onclick="toggleDrawMode('electrical-box', this)">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        新增電箱區域
+                    </button>
                 </div>
                 <div class="area-list-content" id="electricalBoxListContent">
                     <!-- 區域按鈕會動態添加到這裡 -->
@@ -47,12 +55,6 @@
     <div id="loading">載入中...</div>
 
     <style>
-        /* 隱藏下拉選單和刪除按鈕 */
-        .mask-select,
-        .delete-btn {
-            display: none !important;
-        }
-
         /* 側邊欄樣式 */
         .side-panel {
             width: 300px;
@@ -399,10 +401,6 @@
             mainContainer.style.display = 'grid';
             document.getElementById('accessModal').style.display = 'none';
             document.getElementById('loading').style.display = 'none';
-            // 確保在顯示內容後才初始化
-            setTimeout(() => {
-                initializeApp();
-            }, 100);
         }
 
         // 驗證訪問碼
@@ -410,7 +408,8 @@
             const accessInput = document.getElementById('accessInput');
             if (accessInput.value === correctToken) {
                 isAuthenticated = true;
-                showMainContent(); // 這裡會調用 initializeApp()
+                showMainContent();
+                initializeApp(); // 初始化應用
             } else {
                 alert('訪問碼不正確');
                 accessInput.value = '';
@@ -427,8 +426,6 @@
 
         // 初始化應用
         function initializeApp() {
-            // 確保 isAuthenticated 為 true
-            isAuthenticated = true;
             // 將原本的初始化代碼移到這裡
             resetDrawingState();
             initDragAndDrop();
@@ -441,10 +438,14 @@
         }
 
         // 初始設置
+        hideMainContent();
         const mapContainer = document.getElementById('mapContainer');
         const mapSvg = document.getElementById('map-svg');
         const overlaySvg = document.getElementById('overlaySvg');
         const interactiveAreas = overlaySvg.querySelector('.interactive-areas');
+        const drawingArea = document.getElementById('drawingArea');
+        const equipmentBtn = document.getElementById('equipmentBtn');
+        const electricalBoxBtn = document.getElementById('electricalBoxBtn');
         const nameModal = document.getElementById('nameModal');
         const areaNameInput = document.getElementById('areaName');
         const equipmentList = document.getElementById('equipmentList');
@@ -2129,8 +2130,8 @@ function loadAreaItem(areaData, type) {
 
 // 初始化
 document.addEventListener('DOMContentLoaded', function() {
-    // 直接顯示主要內容
-    showMainContent();
+    // 顯示訪問碼輸入視窗
+    showAccessModal();
 });
     </script>
 </body>
