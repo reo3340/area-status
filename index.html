@@ -47,10 +47,16 @@
     <div id="loading">載入中...</div>
 
     <style>
-        /* 隱藏下拉選單和刪除按鈕 */
-        .mask-select,
+        /* 隱藏刪除按鈕，下拉選單唯讀 */
         .delete-btn {
             display: none !important;
+        }
+        .mask-select {
+            pointer-events: none;
+            background-color: #f5f5f5;
+            border-color: #ddd;
+            color: #666;
+            cursor: not-allowed;
         }
 
         /* 側邊欄樣式 */
